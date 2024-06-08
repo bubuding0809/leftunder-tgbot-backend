@@ -52,7 +52,7 @@ async def photo_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Reply to image message with a loading sticker
     try:
-        with open("assets/loading.tgs", "rb") as sticker_file:
+        with open("assets/searching.tgs", "rb") as sticker_file:
             loader_message = await context.bot.send_sticker(
                 chat_id=update.effective_chat.id,
                 sticker=sticker_file,
