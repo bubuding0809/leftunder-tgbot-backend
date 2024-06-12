@@ -40,7 +40,7 @@ class FoodItem(BaseModel):
     )
     shelf_life_days: Optional[int] = Field(
         None,
-        description="Shelf life of the food item in days, estimate based on your knowledge or information available",
+        description="Shelf life of the food item in days, estimate based on your knowledge or information available. If expiry date is provided, this field can be left empty. If expiry date is not provided, this field is required.",
     )
     percentage_remaining: int = Field(
         default=100,
