@@ -7,9 +7,9 @@ import uuid
 import base64
 from telegram.ext import ContextTypes
 from time import perf_counter
-from datetime import datetime
-from typing import Optional, List
-from pydantic import BaseModel, Field
+from datetime import datetime, timedelta
+from typing import Literal, Optional, List
+from pydantic import BaseModel, Field, ValidationError
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.output_parsers import PydanticOutputParser
@@ -18,23 +18,63 @@ from langchain_core.output_parsers.json import JsonOutputParser
 from telegram import File, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from dotenv import load_dotenv
 
+from api import Api
+from schema import CreateFoodItemPayload, FoodItemBase
 from utils import escape_markdown_v2
 
 load_dotenv()
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 
+FOOD_CATEGORY = Literal[
+    "Fruits",
+    "Vegetables",
+    "Meat",
+    "Dairy",
+    "Snacks",
+    "Beverages",
+    "Grains",
+    "Frozen Food",
+    "Canned Food",
+    "Pastries",
+    "Cooked Food",
+    "Others",
+]
+
+FOOD_UNIT = Literal[
+    "g",
+    "ml",
+    "oz",
+    "l",
+    "kg",
+    "piece",
+    "packet",
+    "bottle",
+    "cup",
+    "can",
+    "box",
+    "jar",
+    "container",
+    "carton",
+    "serving",
+    "others",
+]
+
 
 class FoodItem(BaseModel):
     food_name: str = Field(description="Name of the food item, keep it to max 3 words")
-    food_type: str = Field(description="Type of the food item")
+    category: FOOD_CATEGORY = Field(description="Type of the food item")
     description: str = Field(
         description="Description of the food item, keep it to 1 sentence long"
     )
     storage_instructions: str = Field(
-        description="Storage instructions for the food item"
+        description="Storage instructions for the food item, be specific and detailed"
     )
-    volume_weight: str = Field(description="Volume or weight of the food item")
-    quantity_units: str = Field(description="Quantity or units of the food item")
+    quantity: int = Field(
+        description="Quantity of the food item, this should logically match the units. Try to keep it to the finest granularity possible."
+    )
+    units: FOOD_UNIT = Field(
+        description="Units of the food item, this should logically match the quantity. Try to keep it to the finest granularity possible."
+    )
     expiry_date: Optional[datetime] = Field(
         None, description="Expiry date of the food item"
     )
@@ -61,11 +101,11 @@ parser = PydanticOutputParser(
 # Example usage
 food_item_example = FoodItem(
     food_name="Oreo Pikachu Cookies",
-    food_type="Snack",
+    category="Snacks",
     description="These special edition Oreo cookies feature the iconic Pikachu from Pokémon, blended with the electrifying flavors of banana and chocolate cream.",
     storage_instructions="Store in a cool, dry place to keep the magic intact. Best enjoyed while binge-watching Pokémon episodes or trading cards.",
-    volume_weight="27.6 grams per pack",
-    quantity_units="1 pack",
+    quantity=1,
+    units="packet",
     expiry_date=datetime(2024, 12, 21),
     shelf_life_days=365,
     percentage_remaining=100,
@@ -95,10 +135,10 @@ async def process_image(
     telegram_chat_id: int,
     telegram_context: ContextTypes.DEFAULT_TYPE,
     photo_message_id: int,
+    api: Api,
     loader_message_id: Optional[int] = None,
 ) -> None:
-    # Download the photo and save it to a temporary location
-    file_path = f"./temp_photos/{uuid.uuid4()}.jpg"
+    # Download the photo as a byte array to process
     image_byte_array = await telegram_photo_file.download_as_bytearray()
 
     # Convert the image byte array to base64
@@ -112,6 +152,8 @@ async def process_image(
         photo_message_id=photo_message_id,
     )
 
+    # Persist the generated data to the database
+
     # Parse the response data from the LLM and generate the message to send to the user
     if data is None:
         message_str = escape_markdown_v2(
@@ -120,6 +162,39 @@ async def process_image(
     elif len(data.food_items) == 0:
         message_str = escape_markdown_v2("⚠️No food items detected in the image.")
     else:
+        # Save the food items to the database
+        food_item_payloads: List[FoodItemBase] = []
+        for food_item in data.food_items:
+
+            # If expiry date is not provided, calculate it based on shelf life days
+            if food_item.expiry_date is None:
+                food_item.expiry_date = datetime.now() + timedelta(
+                    days=float(food_item.shelf_life_days or 0)
+                )
+
+            # Calculate the reminder date based on 2 days from the expiry date
+            reminder_date = food_item.expiry_date - timedelta(days=2)
+
+            food_item_payloads.append(
+                FoodItemBase(
+                    name=food_item.food_name,
+                    description=food_item.description,
+                    category=food_item.category,
+                    storage_instructions=food_item.storage_instructions,
+                    quantity=food_item.quantity,
+                    unit=food_item.units,
+                    expiry_date=food_item.expiry_date,
+                    shelf_life_days=food_item.shelf_life_days,
+                    reminder_date=reminder_date,
+                )
+            )
+
+        await api.create_food_items(
+            CreateFoodItemPayload(
+                food_items=food_item_payloads, telegram_user_id=telegram_chat_id
+            )
+        )
+
         # Format the json nicely to display in the message
         food_items = []
         for food_item in data.food_items:
@@ -131,10 +206,9 @@ async def process_image(
             food_item_str = f"""
 __*{escape_markdown_v2(food_item.food_name)}*__
 Description: {escape_markdown_v2(food_item.description)}
-Type: {escape_markdown_v2(food_item.food_type)}
+Category: {escape_markdown_v2(food_item.category)}
 Storage Instructions: {escape_markdown_v2(food_item.storage_instructions)}
-Volume/Weight: {escape_markdown_v2(food_item.volume_weight)}
-Quantity/Units: {escape_markdown_v2(food_item.quantity_units)}
+Quantity/Units: {escape_markdown_v2(f"{food_item.quantity} {food_item.units}")}
 Expiry Date: {escape_markdown_v2(expiry_date)}
 Shelf Life \\(days\\): {escape_markdown_v2(str(food_item.shelf_life_days))}
 Percentage Remaining: {escape_markdown_v2(str(food_item.percentage_remaining))}%
@@ -230,7 +304,11 @@ async def invoke_chain(
         f"Received response for {photo_message_id}, took {perf_counter() - start_time:.2f}s"
     )
 
-    return LLMResponse(**response)
+    try:
+        return LLMResponse(**response)
+    except ValidationError as e:
+        logging.error(f"Error parsing response for {photo_message_id}: {e}")
+        return None
 
 
 async def send_telegram_result_message(

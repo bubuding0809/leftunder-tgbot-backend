@@ -101,6 +101,7 @@ async def photo_message(update: Update, context: ContextTypes.DEFAULT_TYPE, api:
             loader_message_id=loader_message.message_id if loader_message else None,
             photo_message_id=update.effective_message.message_id,
             telegram_context=context,
+            api=api,
         )
     )
 
