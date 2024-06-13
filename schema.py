@@ -57,7 +57,18 @@ class CreateFoodItemPayload(BaseModel):
         default=[], description="List of food item objects"
     )
 
-class FoodItemDetails(FoodItemBase):
+class FoodItemDetails(BaseModel):
+    name: str
+    description: str
+    category: str
+    storage_instructions: str
+    quantity: float
+    unit: str
+    expiry_date: datetime
+    shelf_life_days: int
+    reminder_date: datetime
+    user_id: int
+    image_url: str
     consumed: bool
     discarded: bool
 

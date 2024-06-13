@@ -69,7 +69,7 @@ class FoodItem(BaseModel):
     storage_instructions: str = Field(
         description="Storage instructions for the food item, be specific and detailed"
     )
-    quantity: int = Field(
+    quantity: float = Field(
         description="Quantity of the food item, this should logically match the units. Try to keep it to the finest granularity possible."
     )
     units: FOOD_UNIT = Field(
@@ -86,7 +86,7 @@ class FoodItem(BaseModel):
         default=100,
         description="Percentage of volume or weight remaining in integer format, values between 0 and 100",
     )
-    bounding_box: dict = Field(description="Bounding box coordinates of the food item in the image")
+    bounding_box: dict = Field(description="Bounding box coordinates of the particular food item in the image")
 
 
 class LLMResponse(BaseModel):

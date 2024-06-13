@@ -3,6 +3,7 @@ import os
 import uuid
 from dotenv import load_dotenv
 import utils
+import json
 from pydantic import ValidationError
 from supabase import create_client
 from typing import List
@@ -92,7 +93,7 @@ class Api:
             except Exception as e:
                 print("Error uploading image", e)
 
-            food_item_payload_data: FoodItemDetails = {
+            food_item_payload_data = {
                 "name": item.name,
                 "description": item.description,
                 "category": item.category,
@@ -109,7 +110,11 @@ class Api:
                 "consumed": False,
                 "discarded": False
             }
-            food_item_payloads.append(food_item_payload_data)
+            food_item_payloads.append(FoodItemDetails(**food_item_payload_data))
+
+        # Convert list of FoodItemDetails instances to dictionaries and serialize to json
+        json_data = json.dumps([item.dict() for item in food_item_payloads])
+
 
         # TODO: make call to CRUD backend passing in food_item_payloads: List[FoodItemDetails] as payload
         # resp of CRUD backend is CreateFoodItemResponse, which includes List[FoodItemResponse]
