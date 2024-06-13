@@ -18,7 +18,9 @@ from telegram.ext import (
     filters,
 )
 from dotenv import load_dotenv
+from api import Api
 import llm
+from schema import GetUserPayload, RegisterUserPayload
 
 load_dotenv()
 
@@ -30,16 +32,41 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE, api: Api):
     if update.effective_chat is None:
         return
 
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id, text="I'm a bot, please talk to me!"
-    )
+    # Check if the user is already registered
+    response = api.get_user(GetUserPayload(telegram_user_id=update.effective_chat.id))
+    message = f"Welcome back {update.effective_chat.first_name}! 🎉\nContinue your fight against food waste by tracking your food here."
+
+    # Register the user if not already registered
+    if response.user is None:
+        api.register_user(
+            RegisterUserPayload(
+                telegram_user_id=update.effective_chat.id,
+                telegram_username=update.effective_chat.username or "",
+                first_name=update.effective_chat.first_name or "",
+                last_name=update.effective_chat.last_name or "",
+            )
+        )
+        message = f"Welcome {update.effective_chat.first_name}! 🎉\nTry out the leftunder food tracker by sending me a picture of the food item you want to track!"
+
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
 
-async def photo_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat is None:
+        return
+
+    message = "Welcome to the Leftunder Food Tracker! 🎉\n\n\
+        To use this bot, simply send a picture of the food item you want to track and I will help you identify it.\n\n\
+        You can also use the following commands:\n..."
+
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+
+
+async def photo_message(update: Update, context: ContextTypes.DEFAULT_TYPE, api: Api):
     if update.effective_chat is None:
         return
 
@@ -174,17 +201,20 @@ async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.error(f"Update {update} caused error {context.error}")
 
 
-def main():
+def main(api: Api):
     TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     # Define handlers
-    start_handler = CommandHandler("start", start)
+    start_handler = CommandHandler(
+        "start",
+        lambda update, context: start(update, context, api),
+    )
     show_more_handler = CallbackQueryHandler(show_more, pattern="^show_more:.*")
     show_less_handler = CallbackQueryHandler(show_less, pattern="^show_less:.*")
     photo_message_handler = MessageHandler(
         filters.PHOTO,
-        photo_message,
+        lambda update, context: photo_message(update, context, api),
     )
 
     # Register handlers
@@ -203,4 +233,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    supabase_url = os.environ.get("SUPABASE_URL", "")
+    print(supabase_url)
+    supabase_key = os.environ.get("SUPABASE_KEY", "")
+    print(supabase_key)
+    main(Api(supabase_url, supabase_key))
