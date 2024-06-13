@@ -88,9 +88,6 @@ class FoodItem(BaseModel):
     )
     bounding_box: dict = Field(description="Bounding box coordinates of the food item in the image")
 
-class FoodItemInDB(FoodItem):
-    super
-    image_url: str = Field(description="Public URL of the cropped image stored in Supabase")
 
 class LLMResponse(BaseModel):
     food_items: List[FoodItem] = Field(
