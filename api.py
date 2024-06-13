@@ -2,8 +2,10 @@ import base64
 import os
 import uuid
 from dotenv import load_dotenv
+import utils
 from pydantic import ValidationError
 from supabase import create_client
+from typing import List
 from schema import (
     CreateFoodItemPayload,
     CreateFoodItemResponse,
@@ -13,6 +15,7 @@ from schema import (
     RegisterUserPayload,
     RegisterUserResponse,
     User,
+    FoodItemDetails
 )
 
 load_dotenv()
@@ -69,26 +72,27 @@ class Api:
         if user is None:
             return CreateFoodItemResponse(success=False, message="User not found")
 
-        try:
-            image_path = f"{uuid.uuid4()}.jpg"
-            bucket = self.supabase.storage.from_("public-assets")
+        bucket = self.supabase.storage.from_("public-assets")
 
-            # Upload the image to the storage bucket
-            image_response = bucket.upload(
-                path=image_path,
-                file=base64.b64decode(payload.image_base64),
-                file_options={"content-type": "image/jpeg"},
-            )
-            image_key: str = image_response.json()["Key"]
-
-            # Construct public url of the uploaded image
-            image_url = f"{SUPABASE_STORAGE_PUBLIC_URL}/{image_key}"
-        except Exception as e:
+        food_item_payloads: List[FoodItemDetails] = []
+        for item in payload.food_items:
+            cropped_image_base64 = utils.crop_and_return_base64_image(payload.image_base64, item.bounding_box)
             image_url = None
-            print("Error uploading image", e)
+            try:
+                image_path = f"{uuid.uuid4()}.jpg"
+                # Upload the image to the storage bucket
+                image_response = bucket.upload(
+                    path=image_path,
+                    file=base64.b64decode(cropped_image_base64),
+                    file_options={"content-type": "image/jpeg"},
+                )
+                image_key: str = image_response.json()["Key"]
+                # Construct public url of the uploaded image
+                image_url = f"{SUPABASE_STORAGE_PUBLIC_URL}/{image_key}"
+            except Exception as e:
+                print("Error uploading image", e)
 
-        food_item_payloads = [
-            {
+            food_item_payload_data: FoodItemDetails = {
                 "name": item.name,
                 "description": item.description,
                 "category": item.category,
@@ -102,23 +106,27 @@ class Api:
                 "reminder_date": item.reminder_date.isoformat(),
                 "user_id": user.id,
                 "image_url": image_url,
+                "consumed": False,
+                "discarded": False
             }
-            for item in payload.food_items
-        ]
+            food_item_payloads.append(food_item_payload_data)
 
-        try:
-            response = (
-                self.supabase.table("FoodItem").insert(food_item_payloads).execute()
-            )
-        except Exception as e:
-            print("Error creating food items", e)
-            return CreateFoodItemResponse(success=False, message=str(e))
+        # TODO: make call to CRUD backend passing in food_item_payloads: List[FoodItemDetails] as payload
+        # resp of CRUD backend is CreateFoodItemResponse, which includes List[FoodItemResponse]
 
-        try:
-            food_items = [FoodItemResponse(**item) for item in response.data]
-            return CreateFoodItemResponse(
-                success=True, message="Food item created", food_items=food_items
-            )
-        except ValidationError as e:
-            print("Error parsing food items", e)
-            return CreateFoodItemResponse(success=False, message=str(e))
+        # try:
+        #     response = (
+        #         self.supabase.table("FoodItem").insert(food_item_payloads).execute()
+        #     )
+        # except Exception as e:
+        #     print("Error creating food items", e)
+        #     return CreateFoodItemResponse(success=False, message=str(e))
+
+        # try:
+        #     food_items = [FoodItemResponse(**item) for item in response.data]
+        #     return CreateFoodItemResponse(
+        #         success=True, message="Food item created", food_items=food_items
+        #     )
+        # except ValidationError as e:
+        #     print("Error parsing food items", e)
+        #     return CreateFoodItemResponse(success=False, message=str(e))

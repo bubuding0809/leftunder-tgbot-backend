@@ -86,7 +86,11 @@ class FoodItem(BaseModel):
         default=100,
         description="Percentage of volume or weight remaining in integer format, values between 0 and 100",
     )
+    bounding_box: dict = Field(description="Bounding box coordinates of the food item in the image")
 
+class FoodItemInDB(FoodItem):
+    super
+    image_url: str = Field(description="Public URL of the cropped image stored in Supabase")
 
 class LLMResponse(BaseModel):
     food_items: List[FoodItem] = Field(
@@ -109,6 +113,7 @@ food_item_example = FoodItem(
     expiry_date=datetime(2024, 12, 21),
     shelf_life_days=365,
     percentage_remaining=100,
+    bounding_box={"left": 100, "top": 50, "right": 300, "bottom": 250}
 )
 
 SYSTEM_PROMPT = """

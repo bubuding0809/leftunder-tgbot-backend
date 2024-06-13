@@ -28,6 +28,7 @@ class FoodItemBase(BaseModel):
     expiry_date: Optional[datetime] = Field(default=None)
     shelf_life_days: Optional[int] = Field(default=None)
     reminder_date: datetime
+    bounding_box: dict
 
 
 class RegisterUserPayload(BaseModel):
@@ -56,13 +57,14 @@ class CreateFoodItemPayload(BaseModel):
         default=[], description="List of food item objects"
     )
 
+class FoodItemDetails(FoodItemBase):
+    consumed: bool
+    discarded: bool
 
-class FoodItemResponse(FoodItemBase):
+class FoodItemResponse(FoodItemDetails):
     id: str
     created_at: str
     updated_at: str
-    consumed: bool
-    discarded: bool
 
 
 class CreateFoodItemResponse(BaseResponse):
