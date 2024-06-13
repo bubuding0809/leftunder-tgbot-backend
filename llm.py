@@ -191,7 +191,9 @@ async def process_image(
 
         await api.create_food_items(
             CreateFoodItemPayload(
-                food_items=food_item_payloads, telegram_user_id=telegram_chat_id
+                food_items=food_item_payloads,
+                telegram_user_id=telegram_chat_id,
+                image_base64=base64_image,
             )
         )
 

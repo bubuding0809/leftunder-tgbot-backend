@@ -1,4 +1,7 @@
-from datetime import datetime
+import base64
+import os
+import uuid
+from dotenv import load_dotenv
 from pydantic import ValidationError
 from supabase import create_client
 from schema import (
@@ -11,6 +14,9 @@ from schema import (
     RegisterUserResponse,
     User,
 )
+
+load_dotenv()
+SUPABASE_STORAGE_PUBLIC_URL = os.environ.get("SUPABASE_STORAGE_PUBLIC_URL")
 
 
 class Api:
@@ -63,6 +69,24 @@ class Api:
         if user is None:
             return CreateFoodItemResponse(success=False, message="User not found")
 
+        try:
+            image_path = f"{uuid.uuid4()}.jpg"
+            bucket = self.supabase.storage.from_("public-assets")
+
+            # Upload the image to the storage bucket
+            image_response = bucket.upload(
+                path=image_path,
+                file=base64.b64decode(payload.image_base64),
+                file_options={"content-type": "image/jpeg"},
+            )
+            image_key: str = image_response.json()["Key"]
+
+            # Construct public url of the uploaded image
+            image_url = f"{SUPABASE_STORAGE_PUBLIC_URL}/{image_key}"
+        except Exception as e:
+            image_url = None
+            print("Error uploading image", e)
+
         food_item_payloads = [
             {
                 "name": item.name,
@@ -77,6 +101,7 @@ class Api:
                 "shelf_life_days": item.shelf_life_days,
                 "reminder_date": item.reminder_date.isoformat(),
                 "user_id": user.id,
+                "image_url": image_url,
             }
             for item in payload.food_items
         ]

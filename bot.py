@@ -4,7 +4,6 @@ import os
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    ReplyParameters,
     Update,
     WebAppInfo,
 )
@@ -235,7 +234,5 @@ def main(api: Api):
 
 if __name__ == "__main__":
     supabase_url = os.environ.get("SUPABASE_URL", "")
-    print(supabase_url)
     supabase_key = os.environ.get("SUPABASE_KEY", "")
-    print(supabase_key)
     main(Api(supabase_url, supabase_key))

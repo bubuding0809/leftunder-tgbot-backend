@@ -51,6 +51,7 @@ class GetUserResponse(BaseResponse):
 
 class CreateFoodItemPayload(BaseModel):
     telegram_user_id: int
+    image_base64: str
     food_items: List[FoodItemBase] = Field(
         default=[], description="List of food item objects"
     )
