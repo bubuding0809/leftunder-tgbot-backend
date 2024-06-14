@@ -85,16 +85,18 @@ class Api:
 
         food_item_payloads: List[Dict] = []
         for item in payload.food_items:
-            cropped_image_base64 = utils.crop_and_return_base64_image(
-                payload.image_base64, item.bounding_box
-            )
+            # TODO - Need to continue testing image cropping before enabling this
+            # cropped_image_base64 = utils.crop_and_return_base64_image(
+            #     payload.image_base64, item.bounding_box
+            # )
+
             image_url = None
             try:
                 image_path = f"{uuid.uuid4()}.jpg"
                 # Upload the image to the storage bucket
                 image_response = bucket.upload(
                     path=image_path,
-                    file=base64.b64decode(cropped_image_base64),
+                    file=base64.b64decode(payload.image_base64),
                     file_options={"content-type": "image/jpeg"},
                 )
                 image_key: str = image_response.json()["Key"]

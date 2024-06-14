@@ -54,6 +54,7 @@ FOOD_UNIT = Literal[
     "box",
     "jar",
     "container",
+    "bowl",
     "carton",
     "serving",
     "others",
@@ -61,6 +62,8 @@ FOOD_UNIT = Literal[
 
 
 class FoodItem(BaseModel):
+    """Food item detected in the image"""
+
     food_name: str = Field(description="Name of the food item, keep it to max 3 words")
     category: FOOD_CATEGORY = Field(description="Type of the food item")
     description: str = Field(
@@ -73,7 +76,7 @@ class FoodItem(BaseModel):
         description="Quantity of the food item, this should logically match the units. Try to keep it to the finest granularity possible."
     )
     units: FOOD_UNIT = Field(
-        description="Units of the food item, this should logically match the quantity. Try to keep it to the finest granularity possible."
+        description=f"Units of the food item, this should logically match the quantity. Try to keep it to the finest granularity possible. Only use the units provided in the list {FOOD_UNIT}"
     )
     expiry_date: Optional[datetime] = Field(
         None, description="Expiry date of the food item"
@@ -92,6 +95,8 @@ class FoodItem(BaseModel):
 
 
 class LLMResponse(BaseModel):
+    """Food items detected in the image"""
+
     food_items: List[FoodItem] = Field(
         [], description="List of food items detected in the image"
     )
@@ -268,7 +273,7 @@ async def invoke_chain(
 ) -> Optional[LLMResponse]:
     llm = ChatOpenAI(
         model="gpt-4o",
-        temperature=0.5,
+        temperature=0.8,
     )
 
     # Construct system message content

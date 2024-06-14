@@ -30,6 +30,39 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
+START_MESSAGE_EXISITING = """
+Welcome back to Leftunder, {username}! 🌟 We're thrilled to see you again. Here's a quick reminder of the great features you can start using right away.
+
+📋 Pantry Tracker: Organize pantry items and track expiration dates. 
+
+💡 Storage Tips: Maximize shelf life with expert storage advice.
+
+🍲 Recipe Generator 🚧: Get recipes based on your available ingredients.
+
+💚 Support Your Community 🚧: Share surplus or find essentials with a tap, ensuring nothing goes to waste.
+
+Start by sending a picture or multiple pictures 📸 of the food items you want to track!
+"""
+
+START_MESSAGE_NEW = """
+Welcome to LeftUnder, {user}! 🎉
+
+We have just signed you up for the LeftUnder food tracker.
+
+Try the food tracker by sending a picture or multiple pictures 📸 of the food items you want to track! 🥗🍎🥖
+"""
+
+HELP_MESSAGE = """
+Forgot how to use the bot? 🤣
+
+Here’s a quick guide to get you started:
+
+1.	📸 Send pictures of the food item you want to the bot.
+2.	⏳ Wait for the bot to identify the food item.
+3.	🗂️ Manage your food items in the pantry tracker by clicking on the mini-app menu button next to the chat box.
+4.	⏰ Get automatic reminders when your food items are about to expire.
+"""
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE, api: Api):
     if update.effective_chat is None:
@@ -37,7 +70,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE, api: Api):
 
     # Check if the user is already registered
     response = api.get_user(GetUserPayload(telegram_user_id=update.effective_chat.id))
-    message = f"Welcome back {update.effective_chat.first_name}! 🎉\nContinue your fight against food waste by tracking your food here."
+    message = START_MESSAGE_EXISITING.format(username=update.effective_chat.first_name)
 
     # Register the user if not already registered
     if response.user is None:
@@ -49,7 +82,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE, api: Api):
                 last_name=update.effective_chat.last_name or "",
             )
         )
-        message = f"Welcome {update.effective_chat.first_name}! 🎉\nTry out the leftunder food tracker by sending me a picture of the food item you want to track!"
+        message = START_MESSAGE_NEW.format(user=update.effective_chat.first_name)
 
     await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
@@ -58,11 +91,17 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat is None:
         return
 
-    message = "Welcome to the Leftunder Food Tracker! 🎉\n\n\
-        To use this bot, simply send a picture of the food item you want to track and I will help you identify it.\n\n\
-        You can also use the following commands:\n..."
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=HELP_MESSAGE)
 
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+
+async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat is None:
+        return
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Oops...😱 I can't converse but do send me 📸 some food pictures so I can tracking!",
+    )
 
 
 async def photo_message(update: Update, context: ContextTypes.DEFAULT_TYPE, api: Api):
@@ -216,9 +255,13 @@ def main(api: Api):
         filters.PHOTO,
         lambda update, context: photo_message(update, context, api),
     )
+    help_handler = CommandHandler("help", help)
+    message_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, message)
 
     # Register handlers
     application.add_handler(start_handler)
+    application.add_handler(help_handler)
+    application.add_handler(message_handler)
     application.add_handler(photo_message_handler)
     application.add_handler(show_more_handler)
     application.add_handler(show_less_handler)
