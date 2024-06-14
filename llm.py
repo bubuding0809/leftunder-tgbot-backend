@@ -86,7 +86,9 @@ class FoodItem(BaseModel):
         default=100,
         description="Percentage of volume or weight remaining in integer format, values between 0 and 100",
     )
-    bounding_box: dict = Field(description="Bounding box coordinates of the particular food item in the image")
+    bounding_box: dict = Field(
+        description="Bounding box coordinates of the particular food item in the image"
+    )
 
 
 class LLMResponse(BaseModel):
@@ -110,7 +112,7 @@ food_item_example = FoodItem(
     expiry_date=datetime(2024, 12, 21),
     shelf_life_days=365,
     percentage_remaining=100,
-    bounding_box={"left": 100, "top": 50, "right": 300, "bottom": 250}
+    bounding_box={"left": 100, "top": 50, "right": 300, "bottom": 250},
 )
 
 SYSTEM_PROMPT = """
@@ -188,6 +190,7 @@ async def process_image(
                     expiry_date=food_item.expiry_date,
                     shelf_life_days=food_item.shelf_life_days,
                     reminder_date=reminder_date,
+                    bounding_box=food_item.bounding_box,
                 )
             )
 

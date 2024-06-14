@@ -1,12 +1,13 @@
 import base64
 import os
+import pprint
 import uuid
 from dotenv import load_dotenv
 import utils
 import json
 from pydantic import ValidationError
 from supabase import create_client
-from typing import List
+from typing import Dict, List
 from utils import calculate_reminder_date
 from schema import (
     CreateFoodItemPayload,
@@ -23,7 +24,7 @@ from schema import (
     RegisterUserResponse,
     User,
     FoodItemDetails,
-    FoodItemUpdate
+    FoodItemUpdate,
 )
 
 load_dotenv()
@@ -82,9 +83,11 @@ class Api:
 
         bucket = self.supabase.storage.from_("public-assets")
 
-        food_item_payloads: List[FoodItemDetails] = []
+        food_item_payloads: List[Dict] = []
         for item in payload.food_items:
-            cropped_image_base64 = utils.crop_and_return_base64_image(payload.image_base64, item.bounding_box)
+            cropped_image_base64 = utils.crop_and_return_base64_image(
+                payload.image_base64, item.bounding_box
+            )
             image_url = None
             try:
                 image_path = f"{uuid.uuid4()}.jpg"
@@ -115,14 +118,16 @@ class Api:
                 "user_id": user.id,
                 "image_url": image_url,
                 "consumed": False,
-                "discarded": False
+                "discarded": False,
             }
-            food_item_payloads.append(FoodItemDetails(**food_item_payload_data))
+            food_item_payloads.append(food_item_payload_data)
 
         try:
             response = (
                 self.supabase.table("FoodItem").insert(food_item_payloads).execute()
             )
+            print("Response", "Successfully created food items")
+            print("Response", response.data)
         except Exception as e:
             print("Error creating food items", e)
             return CreateFoodItemResponse(success=False, message=str(e))
@@ -135,8 +140,9 @@ class Api:
         except ValidationError as e:
             print("Error parsing food items", e)
             return CreateFoodItemResponse(success=False, message=str(e))
-        
-    async def read_food_items_for_user(self, telegram_user_id: str
+
+    async def read_food_items_for_user(
+        self, telegram_user_id: str
     ) -> ReadFoodItemResponse:
         user_response: GetUserResponse = self.get_user(
             GetUserPayload(telegram_user_id=telegram_user_id)
@@ -146,10 +152,18 @@ class Api:
             return ReadFoodItemResponse(success=False, message="User not found")
 
         try:
-            response = self.supabase.table("FoodItem").select("*").eq("user_id", user.id).order_by("created_at", ascending=False).execute()
+            response = (
+                self.supabase.table("FoodItem")
+                .select("*")
+                .eq("user_id", user.id)
+                .order_by("created_at", ascending=False)
+                .execute()
+            )
             food_items = [FoodItemResponse(**item) for item in response.data]
             return ReadFoodItemResponse(
-                success=True, message="Food items read successfully", food_items=food_items
+                success=True,
+                message="Food items read successfully",
+                food_items=food_items,
             )
         except Exception as e:
             print("Error reading food items", e)
@@ -180,16 +194,23 @@ class Api:
                 "quantity": update_item.quantity,
                 "unit": update_item.unit,
                 "expiry_date": (
-                    update_item.expiry_date.isoformat() if update_item.expiry_date else None
+                    update_item.expiry_date.isoformat()
+                    if update_item.expiry_date
+                    else None
                 ),
                 "shelf_life_days": update_item.shelf_life_days,
                 "reminder_date": calculate_reminder_date(update_item).isoformat(),
                 "consumed": update_item.consumed,
-                "discarded": update_item.discarded
+                "discarded": update_item.discarded,
             }
-            
+
             try:
-                response = self.supabase.table("FoodItem").update(updated_data).eq("id", food_item_id).execute()
+                response = (
+                    self.supabase.table("FoodItem")
+                    .update(updated_data)
+                    .eq("id", food_item_id)
+                    .execute()
+                )
                 food_items = [FoodItemResponse(**item) for item in response.data]
                 food_items_updated_success.extend(food_items)
             except Exception as e:
@@ -198,8 +219,8 @@ class Api:
                 continue
 
         return UpdateFoodItemResponse(
-            success=True, 
-            message="Food items updated", 
+            success=True,
+            message="Food items updated",
             food_items_updated_success=food_items_updated_success,
-            food_items_updated_failed=food_items_updated_failed
+            food_items_updated_failed=food_items_updated_failed,
         )
