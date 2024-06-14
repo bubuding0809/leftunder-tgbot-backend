@@ -246,7 +246,9 @@ Percentage Remaining: {escape_markdown_v2(str(food_item.percentage_remaining))}%
             [
                 InlineKeyboardButton(
                     "edit",
-                    web_app=WebAppInfo(url="https://github.com/bubuding0809"),
+                    web_app=WebAppInfo(
+                        url="https://leftunder-tma-web.vercel.app/pantry"
+                    ),
                 ),
             ],
         ],
