@@ -7,16 +7,23 @@ import json
 from pydantic import ValidationError
 from supabase import create_client
 from typing import List
+from utils import calculate_reminder_date
 from schema import (
     CreateFoodItemPayload,
+    UpdateFoodItemPayload,
+    DeleteFoodItemPayload,
     CreateFoodItemResponse,
+    ReadFoodItemResponse,
+    UpdateFoodItemResponse,
+    DeleteFoodItemResponse,
     FoodItemResponse,
     GetUserPayload,
     GetUserResponse,
     RegisterUserPayload,
     RegisterUserResponse,
     User,
-    FoodItemDetails
+    FoodItemDetails,
+    FoodItemUpdate
 )
 
 load_dotenv()
@@ -128,3 +135,71 @@ class Api:
         except ValidationError as e:
             print("Error parsing food items", e)
             return CreateFoodItemResponse(success=False, message=str(e))
+        
+    async def read_food_items_for_user(self, telegram_user_id: str
+    ) -> ReadFoodItemResponse:
+        user_response: GetUserResponse = self.get_user(
+            GetUserPayload(telegram_user_id=telegram_user_id)
+        )
+        user: User = user_response.user
+        if user is None:
+            return ReadFoodItemResponse(success=False, message="User not found")
+
+        try:
+            response = self.supabase.table("FoodItem").select("*").eq("user_id", user.id).order_by("created_at", ascending=False).execute()
+            food_items = [FoodItemResponse(**item) for item in response.data]
+            return ReadFoodItemResponse(
+                success=True, message="Food items read successfully", food_items=food_items
+            )
+        except Exception as e:
+            print("Error reading food items", e)
+            return ReadFoodItemResponse(success=False, message=str(e))
+
+    async def update_food_items(
+        self, payload: UpdateFoodItemPayload
+    ) -> UpdateFoodItemResponse:
+        user_response = self.get_user(
+            GetUserPayload(telegram_user_id=payload.telegram_user_id)
+        )
+        user = user_response.user
+        if user is None:
+            return UpdateFoodItemResponse(success=False, message="User not found")
+
+        food_items_updated_success: List[FoodItemResponse] = []
+        food_items_updated_failed: List[FoodItemUpdate] = []
+
+        food_item_payloads: List[FoodItemUpdate] = []
+        for update_item in payload.food_items:
+            food_item_id = update_item.get("id")
+
+            updated_data = {
+                "name": update_item.name,
+                "description": update_item.description,
+                "category": update_item.category,
+                "storage_instructions": update_item.storage_instructions,
+                "quantity": update_item.quantity,
+                "unit": update_item.unit,
+                "expiry_date": (
+                    update_item.expiry_date.isoformat() if update_item.expiry_date else None
+                ),
+                "shelf_life_days": update_item.shelf_life_days,
+                "reminder_date": calculate_reminder_date(update_item).isoformat(),
+                "consumed": update_item.consumed,
+                "discarded": update_item.discarded
+            }
+            
+            try:
+                response = self.supabase.table("FoodItem").update(updated_data).eq("id", food_item_id).execute()
+                food_items = [FoodItemResponse(**item) for item in response.data]
+                food_items_updated_success.extend(food_items)
+            except Exception as e:
+                print(f"Error updating food items of id {food_item_id}", e)
+                food_items_updated_failed.append(update_item)
+                continue
+
+        return UpdateFoodItemResponse(
+            success=True, 
+            message="Food items updated", 
+            food_items_updated_success=food_items_updated_success,
+            food_items_updated_failed=food_items_updated_failed
+        )

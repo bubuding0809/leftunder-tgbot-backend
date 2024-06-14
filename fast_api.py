@@ -1,26 +1,18 @@
-from fastapi import FastAPI, HTTPException
+from api import Api
+from fastapi import FastAPI, HTTPException, Body
 from typing import List
 from pydantic import BaseModel
 from uuid import UUID, uuid4
+from supabase import create_client, Client
+
+from schema import *
 
 app = FastAPI()
 
-class FoodItem(BaseModel):
-    id: UUID
-    name: str
-    description: Optional[str] = None
-    price: float
-    tax: Optional[float] = None
+supabase_url: str = "your_supabase_url" # TODO
+supabase_key: str = "your_supabase_key" # TODO
 
-class User(BaseModel):
-    id: UUID
-    username: str
-    email: str
-    full_name: Optional[str] = None
-    disabled: Optional[bool] = None
-
-fake_food_db = {}
-fake_user_db = {}
+api_instance = Api(supabase_url, supabase_key)
 
 @app.get("/")
 def read_root():
@@ -28,23 +20,22 @@ def read_root():
 
 # Food Item Endpoints
 
-@app.get("/food-items/", response_model=List[FoodItem])
-def read_food_items(skip: int = 0, limit: int = 10):
-    items = list(fake_food_db.values())[skip : skip + limit]
-    return items
+@app.post("/create-food-items-for-user/", response_model=CreateFoodItemResponse)
+def create_food_items_for_user(payload: CreateFoodItemPayload = Body(...)):
+    return api_instance.create_food_items(payload)
+    
 
-@app.get("/food-items/{food_item_id}", response_model=FoodItem)
-def read_food_item(food_item_id: UUID):
-    if food_item_id not in fake_food_db:
-        raise HTTPException(status_code=404, detail="Food item not found")
-    return fake_food_db[food_item_id]
+@app.get("/read-food-items-for-user/", response_model=ReadFoodItemResponse)
+def read_food_items_for_user(telegram_user_id: int):
+    return api_instance.read_food_items_for_user(telegram_user_id=telegram_user_id)
 
-@app.put("/food-items/{food_item_id}", response_model=FoodItem)
-def update_food_item(food_item_id: UUID, food_item: FoodItem):
-    if food_item_id not in fake_food_db:
-        raise HTTPException(status_code=404, detail="Food item not found")
-    fake_food_db[food_item_id] = food_item
-    return food_item
+@app.put("/update-food-items-for-user/", response_model=UpdateFoodItemResponse)
+def update_food_items_for_user(payload: UpdateFoodItemPayload = Body(...)):
+    return api_instance.update_food_items(payload)
+
+@app.put("/sync-reminder-food-items-for-user/", response_model=CreateFoodItemResponse)
+def update_food_items_for_user():
+    return api_instance.sync_reminder_date_food_items()
 
 @app.delete("/food-items/{food_item_id}", response_model=FoodItem)
 def delete_food_item(food_item_id: UUID):
@@ -52,17 +43,8 @@ def delete_food_item(food_item_id: UUID):
         raise HTTPException(status_code=404, detail="Food item not found")
     return fake_food_db.pop(food_item_id)
 
+
 # User Endpoints
-
-@app.get("/users/{user_id}", response_model=User)
-def read_user(user_id: UUID):
-    if user_id not in fake_user_db:
-        raise HTTPException(status_code=404, detail="User not found")
-    return fake_user_db[user_id]
-
-@app.put("/users/{user_id}", response_model=User)
-def update_user(user_id: UUID, user: User):
-    if user_id not in fake_user_db:
-        raise HTTPException(status_code=404, detail="User not found")
-    fake_user_db[user_id] = user
-    return user
+@app.get("/users/telegram_user_id/{telegram_user_id}", response_model=GetUserResponse)
+def read_user(telegram_user_id: int):
+    return api_instance.get_user(GetUserPayload(telegram_user_id=telegram_user_id))

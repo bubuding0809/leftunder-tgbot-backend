@@ -1,4 +1,5 @@
 import base64
+from datetime import datetime, timedelta
 from PIL import Image
 from io import BytesIO
 import uuid
@@ -64,3 +65,15 @@ def crop_and_return_base64_image(image_base64: str, bounding_box: dict) -> str:
     cropped_image_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
     
     return cropped_image_base64
+
+def calculate_reminder_date(food_item):
+    # If expiry date is not provided, calculate it based on shelf life days
+    if food_item.expiry_date is None:
+        food_item.expiry_date = datetime.now() + timedelta(
+            days=float(food_item.shelf_life_days or 0)
+        )
+
+    # Calculate the reminder date based on 2 days from the expiry date
+    reminder_date = food_item.expiry_date - timedelta(days=2)
+
+    return reminder_date
