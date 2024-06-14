@@ -112,26 +112,19 @@ class Api:
             }
             food_item_payloads.append(FoodItemDetails(**food_item_payload_data))
 
-        # Convert list of FoodItemDetails instances to dictionaries and serialize to json
-        json_data = json.dumps([item.dict() for item in food_item_payloads])
+        try:
+            response = (
+                self.supabase.table("FoodItem").insert(food_item_payloads).execute()
+            )
+        except Exception as e:
+            print("Error creating food items", e)
+            return CreateFoodItemResponse(success=False, message=str(e))
 
-
-        # TODO: make call to CRUD backend passing in food_item_payloads: List[FoodItemDetails] as payload
-        # resp of CRUD backend is CreateFoodItemResponse, which includes List[FoodItemResponse]
-
-        # try:
-        #     response = (
-        #         self.supabase.table("FoodItem").insert(food_item_payloads).execute()
-        #     )
-        # except Exception as e:
-        #     print("Error creating food items", e)
-        #     return CreateFoodItemResponse(success=False, message=str(e))
-
-        # try:
-        #     food_items = [FoodItemResponse(**item) for item in response.data]
-        #     return CreateFoodItemResponse(
-        #         success=True, message="Food item created", food_items=food_items
-        #     )
-        # except ValidationError as e:
-        #     print("Error parsing food items", e)
-        #     return CreateFoodItemResponse(success=False, message=str(e))
+        try:
+            food_items = [FoodItemResponse(**item) for item in response.data]
+            return CreateFoodItemResponse(
+                success=True, message="Food item created", food_items=food_items
+            )
+        except ValidationError as e:
+            print("Error parsing food items", e)
+            return CreateFoodItemResponse(success=False, message=str(e))
