@@ -228,6 +228,11 @@ Percentage Remaining: {escape_markdown_v2(str(food_item.percentage_remaining))}%
             food_items.append(food_item_str)
         escaped_divider_str = escape_markdown_v2("\n---------\n")
         full_message_str = escaped_divider_str.join(food_items)
+        full_message_str = (
+            "Found these food items:\n"
+            + full_message_str
+            + "\nOpen your pantry to manage them\\!"
+        )
         short_message_str = "Found these food items:\n" + "\n".join(
             [
                 f"{i}\\. __*{escape_markdown_v2(item.food_name)}*__"
@@ -252,16 +257,16 @@ Percentage Remaining: {escape_markdown_v2(str(food_item.percentage_remaining))}%
         loader_message_id=loader_message_id,
         photo_message_id=photo_message_id,
         message_str=message_str,
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    "edit",
-                    web_app=WebAppInfo(
-                        url="https://leftunder-tma-web.vercel.app/pantry"
-                    ),
-                ),
-            ],
-        ],
+        # inline_keyboard=[
+        #     [
+        #         InlineKeyboardButton(
+        #             "edit",
+        #             web_app=WebAppInfo(
+        #                 url="https://leftunder-tma-web.vercel.app/pantry"
+        #             ),
+        #         ),
+        #     ],
+        # ],
     )
 
 
