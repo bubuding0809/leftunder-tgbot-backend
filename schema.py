@@ -73,13 +73,13 @@ class CreateFoodItemPayload(BaseModel):
 class UpdateFoodItemPayload(BaseModel):
     telegram_user_id: int
     food_items: List[FoodItemUpdate] = Field(
-        default=[], description="List of food item objects"
+        default=[], description="List of update food item objects, restricted to editable fields only"
     )
 
 class DeleteFoodItemPayload(BaseModel):
     telegram_user_id: int
-    food_items: List[FoodItemBase] = Field(
-        default=[], description="List of food item objects"
+    food_items_id: List[int] = Field(
+        default=[], description="List of food item id objects"
     )
 
 class FoodItemDetails(BaseModel):
@@ -122,6 +122,6 @@ class UpdateFoodItemResponse(BaseResponse):
     )
 
 class DeleteFoodItemResponse(BaseResponse):
-    food_items: List[FoodItemResponse] = Field(
+    food_items_id_deleted_failed: List[id] = Field(
         default=[], description="Food item objects if deleted successfully"
     )

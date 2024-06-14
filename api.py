@@ -198,8 +198,35 @@ class Api:
                 continue
 
         return UpdateFoodItemResponse(
-            success=True, 
+            success=False if len(food_items_updated_failed) > 0 else True,
             message="Food items updated", 
             food_items_updated_success=food_items_updated_success,
             food_items_updated_failed=food_items_updated_failed
         )
+    
+    async def delete_food_items_for_user(self, payload: DeleteFoodItemPayload
+    ) -> DeleteFoodItemResponse:
+        user_response = self.get_user(
+            GetUserPayload(telegram_user_id=payload.telegram_user_id)
+        )
+        user = user_response.user
+        if user is None:
+            return UpdateFoodItemResponse(success=False, message="User not found")
+        
+        food_items_id: List[int] = payload.food_items_id
+
+        food_items_id_deleted_failed: List[int] = []
+        
+        for item_id in food_items_id:
+            try:
+                response = self.supabase.table("FoodItem").delete().eq("id", item_id).execute()
+            except Exception as e:
+                    print(f"Error deleting food items of id {item_id}", e)
+                    food_items_id_deleted_failed.append(item_id)
+                    continue
+
+        return DeleteFoodItemResponse(
+            success=False if len(food_items_id_deleted_failed) > 0 else True,
+            message="Food items deleted", 
+            food_items_id_deleted_failed=food_items_id_deleted_failed
+        )   

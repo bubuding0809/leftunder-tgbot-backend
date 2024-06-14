@@ -37,12 +37,9 @@ def update_food_items_for_user(payload: UpdateFoodItemPayload = Body(...)):
 def update_food_items_for_user():
     return api_instance.sync_reminder_date_food_items()
 
-@app.delete("/food-items/{food_item_id}", response_model=FoodItem)
-def delete_food_item(food_item_id: UUID):
-    if food_item_id not in fake_food_db:
-        raise HTTPException(status_code=404, detail="Food item not found")
-    return fake_food_db.pop(food_item_id)
-
+@app.post("/delete-food-items/", response_model=DeleteFoodItemResponse)
+def delete_food_item(payload: DeleteFoodItemPayload):
+    return api_instance.delete_food_items_for_user(payload)
 
 # User Endpoints
 @app.get("/users/telegram_user_id/{telegram_user_id}", response_model=GetUserResponse)
