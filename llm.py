@@ -231,7 +231,7 @@ Percentage Remaining: {escape_markdown_v2(str(food_item.percentage_remaining))}%
         full_message_str = (
             "Found these food items:\n"
             + full_message_str
-            + "\nOpen your pantry to manage them\\!"
+            + "\n📱Open your pantry to manage them\\!📱"
         )
         short_message_str = "Found these food items:\n" + "\n".join(
             [
