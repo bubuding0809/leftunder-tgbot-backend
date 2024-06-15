@@ -4,13 +4,14 @@ from typing import List
 from pydantic import BaseModel
 from uuid import UUID, uuid4
 from supabase import create_client, Client
+import os
 
 from schema import *
 
 app = FastAPI()
 
-supabase_url: str = "your_supabase_url" # TODO
-supabase_key: str = "your_supabase_key" # TODO
+supabase_url: str = os.environ.get("SUPABASE_URL", "")
+supabase_key: str = os.environ.get("SUPABASE_KEY", "")
 
 api_instance = Api(supabase_url, supabase_key)
 

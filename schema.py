@@ -135,6 +135,6 @@ class UpdateFoodItemResponse(BaseResponse):
 
 
 class DeleteFoodItemResponse(BaseResponse):
-    food_items_id_deleted_failed: List[id] = Field(
+    food_items_id_deleted_failed: List[int] = Field(
         default=[], description="Food item objects if deleted successfully"
     )
