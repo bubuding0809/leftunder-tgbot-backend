@@ -94,7 +94,7 @@ class FoodItemDetails(BaseModel):
     quantity: float
     unit: str
     expiry_date: datetime
-    shelf_life_days: int
+    shelf_life_days: Optional[int] = Field(default=None)
     reminder_date: datetime
     user_id: str
     image_url: str
