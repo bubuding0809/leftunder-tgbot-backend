@@ -54,6 +54,7 @@ FOOD_UNIT = Literal[
     "box",
     "jar",
     "container",
+    "bowl",
     "carton",
     "serving",
     "others",
@@ -61,6 +62,8 @@ FOOD_UNIT = Literal[
 
 
 class FoodItem(BaseModel):
+    """Food item detected in the image"""
+
     food_name: str = Field(description="Name of the food item, keep it to max 3 words")
     category: FOOD_CATEGORY = Field(description="Type of the food item")
     description: str = Field(
@@ -73,7 +76,7 @@ class FoodItem(BaseModel):
         description="Quantity of the food item, this should logically match the units. Try to keep it to the finest granularity possible."
     )
     units: FOOD_UNIT = Field(
-        description="Units of the food item, this should logically match the quantity. Try to keep it to the finest granularity possible."
+        description=f"Units of the food item, this should logically match the quantity. Try to keep it to the finest granularity possible. Only use the units provided in the list {FOOD_UNIT}"
     )
     expiry_date: Optional[datetime] = Field(
         None, description="Expiry date of the food item"
@@ -86,10 +89,14 @@ class FoodItem(BaseModel):
         default=100,
         description="Percentage of volume or weight remaining in integer format, values between 0 and 100",
     )
-    bounding_box: dict = Field(description="Bounding box coordinates of the particular food item in the image")
+    bounding_box: dict = Field(
+        description="Bounding box coordinates of the particular food item in the image"
+    )
 
 
 class LLMResponse(BaseModel):
+    """Food items detected in the image"""
+
     food_items: List[FoodItem] = Field(
         [], description="List of food items detected in the image"
     )
@@ -110,7 +117,7 @@ food_item_example = FoodItem(
     expiry_date=datetime(2024, 12, 21),
     shelf_life_days=365,
     percentage_remaining=100,
-    bounding_box={"left": 100, "top": 50, "right": 300, "bottom": 250}
+    bounding_box={"left": 100, "top": 50, "right": 300, "bottom": 250},
 )
 
 SYSTEM_PROMPT = """
@@ -188,6 +195,7 @@ async def process_image(
                     expiry_date=food_item.expiry_date,
                     shelf_life_days=food_item.shelf_life_days,
                     reminder_date=reminder_date,
+                    bounding_box=food_item.bounding_box,
                 )
             )
 
@@ -220,6 +228,11 @@ Percentage Remaining: {escape_markdown_v2(str(food_item.percentage_remaining))}%
             food_items.append(food_item_str)
         escaped_divider_str = escape_markdown_v2("\n---------\n")
         full_message_str = escaped_divider_str.join(food_items)
+        full_message_str = (
+            "Found these food items:\n"
+            + full_message_str
+            + "\n📱Open your pantry to manage them\\!📱"
+        )
         short_message_str = "Found these food items:\n" + "\n".join(
             [
                 f"{i}\\. __*{escape_markdown_v2(item.food_name)}*__"
@@ -244,16 +257,16 @@ Percentage Remaining: {escape_markdown_v2(str(food_item.percentage_remaining))}%
         loader_message_id=loader_message_id,
         photo_message_id=photo_message_id,
         message_str=message_str,
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    "edit",
-                    web_app=WebAppInfo(
-                        url="https://leftunder-tma-web.vercel.app/pantry"
-                    ),
-                ),
-            ],
-        ],
+        # inline_keyboard=[
+        #     [
+        #         InlineKeyboardButton(
+        #             "edit",
+        #             web_app=WebAppInfo(
+        #                 url="https://leftunder-tma-web.vercel.app/pantry"
+        #             ),
+        #         ),
+        #     ],
+        # ],
     )
 
 
@@ -265,7 +278,7 @@ async def invoke_chain(
 ) -> Optional[LLMResponse]:
     llm = ChatOpenAI(
         model="gpt-4o",
-        temperature=0.5,
+        temperature=0.8,
     )
 
     # Construct system message content
