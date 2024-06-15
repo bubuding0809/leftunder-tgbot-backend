@@ -113,6 +113,12 @@ class ReadFoodItemResponse(BaseResponse):
         default=[], description="Food item objects if read successfully"
     )
 
+class GroupReadFoodItemResponse(BaseResponse):
+    telegram_user_id: int
+    food_items: List[FoodItemResponse] = Field(
+        default=[], description="Food item objects if read successfully"
+    )
+
 class UpdateFoodItemResponse(BaseResponse):
     food_items_updated_success: List[FoodItemResponse] = Field(
         default=[], description="Food item objects if updated successfully"

@@ -33,8 +33,8 @@ def read_food_items_for_user(telegram_user_id: int):
 def update_food_items_for_user(payload: UpdateFoodItemPayload = Body(...)):
     return api_instance.update_food_items(payload)
 
-@app.put("/sync-reminder-food-items-for-user/", response_model=CreateFoodItemResponse)
-def update_food_items_for_user():
+@app.get("/sync-reminder-food-items-for-user/", response_model=BaseResponse)
+def sync_food_items_for_user():
     return api_instance.sync_reminder_date_food_items()
 
 @app.post("/delete-food-items/", response_model=DeleteFoodItemResponse)

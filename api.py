@@ -1,4 +1,6 @@
 import base64
+from collections import defaultdict
+import datetime
 import os
 import uuid
 from dotenv import load_dotenv
@@ -9,6 +11,7 @@ from supabase import create_client
 from typing import List
 from utils import calculate_reminder_date
 from schema import (
+    BaseResponse,
     CreateFoodItemPayload,
     UpdateFoodItemPayload,
     DeleteFoodItemPayload,
@@ -230,3 +233,38 @@ class Api:
             message="Food items deleted", 
             food_items_id_deleted_failed=food_items_id_deleted_failed
         )   
+
+    async def sync_reminder_date_food_items(self) -> BaseResponse:
+        # Get current datetime
+        current_datetime = datetime.datetime.now()
+        current_datetime_iso = current_datetime.isoformat()
+        # new reminder datetime is 23 hours from current datetime
+        next_reminder_datetime = current_datetime + datetime.timedelta(hours=23) 
+        next_reminder_datetime_iso = next_reminder_datetime.isoformat()
+
+        TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+        
+        try:
+            response = self.supabase.table("FoodItem").update({"reminder_date", next_reminder_datetime_iso}).eq("consumed", False).eq("discarded", False).lt("reminder_date", current_datetime_iso).execute()
+            food_items = [FoodItemResponse(**item) for item in response.data]
+
+            grouped_food_items = defaultdict(list)
+            for item in food_items:
+                grouped_food_items[item.user_id].append(item)
+            # Convert the defaultdict to a regular dictionary
+            grouped_food_items = dict(grouped_food_items)
+
+            for id_user_table, user_food_items_list in grouped_food_items.items():
+                telegram_user_id = self.supabase.table("User").select("telegram_user_id").eq("id", id_user_table).execute()
+                #TODO: test the util function and format the telegram message
+                utils.send_telegram_message(TELEGRAM_BOT_TOKEN, telegram_user_id, user_food_items_list)
+
+            return BaseResponse(
+                success=False,
+                message="Sync food items success"
+            )
+        except Exception as e:
+            return BaseResponse(
+                success=False,
+                message="Sync food items failed"
+            ) 
