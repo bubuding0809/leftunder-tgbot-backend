@@ -28,8 +28,10 @@ class FoodItemBase(BaseModel):
     expiry_date: Optional[datetime] = Field(default=None)
     shelf_life_days: Optional[int] = Field(default=None)
     reminder_date: datetime
-    bounding_box: dict
+    bounding_box: Optional[dict] = Field(default=None)
 
+class FoodItemCreate(FoodItemBase):
+    image_url: str
 
 class FoodItemUpdate(BaseModel):
     id: int
@@ -67,7 +69,7 @@ class GetUserResponse(BaseResponse):
 class CreateFoodItemPayload(BaseModel):
     telegram_user_id: int
     image_base64: str
-    food_items: List[FoodItemBase] = Field(
+    food_items: List[FoodItemCreate] = Field(
         default=[], description="List of food item objects"
     )
 

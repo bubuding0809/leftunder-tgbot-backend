@@ -85,28 +85,30 @@ class Api:
             return CreateFoodItemResponse(success=False, message="User not found")
 
         bucket = self.supabase.storage.from_("public-assets")
+        
+        image_url = None
+        
+        try:
+            image_path = f"{uuid.uuid4()}.jpg"
+            # Upload the image to the storage bucket
+            image_response = bucket.upload(
+                path=image_path,
+                file=base64.b64decode(payload.image_base64),
+                file_options={"content-type": "image/jpeg"},
+            )
+            image_key: str = image_response.json()["Key"]
+            # Construct public url of the uploaded image
+            image_url = f"{SUPABASE_STORAGE_PUBLIC_URL}/{image_key}"
+        except Exception as e:
+            print("Error uploading image", e)
 
         food_item_payloads: List[Dict] = []
+
         for item in payload.food_items:
             # TODO - Need to continue testing image cropping before enabling this
             # cropped_image_base64 = utils.crop_and_return_base64_image(
             #     payload.image_base64, item.bounding_box
             # )
-
-            image_url = None
-            try:
-                image_path = f"{uuid.uuid4()}.jpg"
-                # Upload the image to the storage bucket
-                image_response = bucket.upload(
-                    path=image_path,
-                    file=base64.b64decode(payload.image_base64),
-                    file_options={"content-type": "image/jpeg"},
-                )
-                image_key: str = image_response.json()["Key"]
-                # Construct public url of the uploaded image
-                image_url = f"{SUPABASE_STORAGE_PUBLIC_URL}/{image_key}"
-            except Exception as e:
-                print("Error uploading image", e)
 
             food_item_payload_data = {
                 "name": item.name,
@@ -147,7 +149,7 @@ class Api:
             return CreateFoodItemResponse(success=False, message=str(e))
 
     async def read_food_items_for_user(
-        self, telegram_user_id: str
+        self, telegram_user_id: str, order_by: str, sort: str
     ) -> ReadFoodItemResponse:
         user_response: GetUserResponse = self.get_user(
             GetUserPayload(telegram_user_id=telegram_user_id)
@@ -161,7 +163,7 @@ class Api:
                 self.supabase.table("FoodItem")
                 .select("*")
                 .eq("user_id", user.id)
-                .order_by("created_at", ascending=False)
+                .order_by(order_by, ascending=(sort == "asc"))
                 .execute()
             )
             food_items = [FoodItemResponse(**item) for item in response.data]
@@ -257,7 +259,7 @@ class Api:
             food_items_id_deleted_failed=food_items_id_deleted_failed
         )   
 
-    async def sync_reminder_date_food_items(self) -> BaseResponse:
+    async def sync_reminder_date_food_items(self, days_to_expiry: int) -> BaseResponse:
         # Get current datetime
         current_datetime = datetime.datetime.now()
         current_datetime_iso = current_datetime.isoformat()
@@ -265,10 +267,13 @@ class Api:
         next_reminder_datetime = current_datetime + datetime.timedelta(hours=23) 
         next_reminder_datetime_iso = next_reminder_datetime.isoformat()
 
+        trigger_date = current_datetime + datetime.timedelta(days=5)
+        trigger_date_iso = trigger_date.isoformat()
+
         TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
         
         try:
-            response = self.supabase.table("FoodItem").update({"reminder_date", next_reminder_datetime_iso}).eq("consumed", False).eq("discarded", False).lt("reminder_date", current_datetime_iso).execute()
+            response = self.supabase.table("FoodItem").update({"reminder_date", next_reminder_datetime_iso}).eq("consumed", False).eq("discarded", False).lt("expiry_date", trigger_date_iso).execute()
             food_items = [FoodItemResponse(**item) for item in response.data]
 
             grouped_food_items = defaultdict(list)

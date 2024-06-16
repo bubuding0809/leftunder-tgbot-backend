@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from PIL import Image
 from io import BytesIO
 import uuid
+import os
 import requests
 
 def escape_markdown_v2(text: str) -> str:
@@ -74,8 +75,8 @@ def calculate_reminder_date(food_item):
             days=float(food_item.shelf_life_days or 0)
         )
 
-    # Calculate the reminder date based on 2 days from the expiry date
-    reminder_date = food_item.expiry_date - timedelta(days=2)
+    # Calculate the reminder date based on 5 days from the expiry date
+    reminder_date = food_item.expiry_date - timedelta(days=5)
 
     return reminder_date
 
