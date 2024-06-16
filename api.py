@@ -396,8 +396,8 @@ class Api:
                     utils.send_telegram_message(TELEGRAM_BOT_TOKEN, telegram_user_id, telegram_user_alert_message)
 
             return BaseResponse(
-                success=False,
-                message="Sync food items success"
+                success=True,
+                message="Sync food items success - message sent to telegram user"
             )
         except Exception as e:
             return BaseResponse(

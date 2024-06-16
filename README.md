@@ -7,4 +7,5 @@
 ## Set up
 
 - python bot.py
-- uvicorn fast_api:app --reload
+- for localhost : ```uvicorn fast_api:app --reload```
+- for prod server : ```uvicorn fast_api:app --host 0.0.0.0 --port 8080```
