@@ -6,6 +6,8 @@ import uuid
 import os
 import requests
 
+from schema import ConsumedDiscardedFoodItemPayload, FoodItemConsumedDiscarded
+
 def escape_markdown_v2(text: str) -> str:
     """
     Escapes special characters in the given text to prevent them from being interpreted as Markdown formatting.
@@ -80,14 +82,44 @@ def calculate_reminder_date(food_item):
 
     return reminder_date
 
-def send_telegram_message(bot_token, chat_id, message):
+def send_telegram_message(bot_token, chat_id, message, buttons=None):
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    reply_markup = {}
+    
+    if buttons:
+        # Prepare inline keyboard markup
+        keyboard = []
+        for row in buttons:
+            keyboard.append([{"text": btn_text, "url": btn_url} for btn_text, btn_url in row])
+        reply_markup = {"inline_keyboard": keyboard}
+
     payload = {
         "chat_id": chat_id,
-        "text": message
+        "text": message,
+        "reply_markup": reply_markup
     }
+    
     response = requests.post(url, json=payload)
     if response.status_code == 200:
         print("Message sent successfully")
     else:
         print(f"Failed to send message. Status code: {response.status_code}")
+
+  
+def format_expiry_alert(food_items):
+    messages = []
+
+    for food_item in food_items:
+        name = food_item.name
+        expiry_date = food_item.expiry_date.strftime("%Y-%m-%d") if food_item.expiry_date else "Unknown"
+        
+        message = f"- {name} (expiring: {expiry_date})"
+        messages.append(message)
+    
+    alert_message = (
+        f"*Food Expiry Alert!* - These are food items expiring soon\n\n"
+        + "\n".join(messages) + "\n\n"
+        "Mark all as consumed or enter pantry to manage!"
+    )
+
+    return alert_message

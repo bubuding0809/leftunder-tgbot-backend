@@ -1,6 +1,7 @@
 import base64
 from collections import defaultdict
 from datetime import datetime, timedelta
+import utils
 import logging
 import os
 from time import perf_counter
@@ -14,8 +15,11 @@ from typing import Dict, List, Optional
 from utils import calculate_reminder_date, escape_markdown_v2
 from schema import (
     BaseResponse,
+    ConsumedDiscardedFoodItemPayload,
     CreateFoodItemPayload,
     FoodItemBase,
+    FoodItemConsumedDiscarded,
+    ProcessImageResponse,
     UpdateFoodItemPayload,
     DeleteFoodItemPayload,
     CreateFoodItemResponse,
@@ -57,7 +61,7 @@ class Api:
         self,
         image_url: str,
         telegram_user_id: int,
-    ) -> str:
+    ) -> ProcessImageResponse:
         # Process the image using the LLM
         start_time = perf_counter()
         logger.info(f"Invoking llm to process: {image_url.split('/')[-1]}")
@@ -119,18 +123,24 @@ class Api:
 
         # Return an error message if the food items were not created successfully
         if not create_food_items_response.success:
-            return escape_markdown_v2(
-                f"😥 Sorry, something went wrong while saving these food items to the pantry"
-            )
+            error_message: str = escape_markdown_v2(f"😥 Sorry, something went wrong while saving these food items to the pantry")
+            return ProcessImageResponse(
+            processed_message=error_message,
+            success= False,
+            message="Process Image and Create food items failed"
+        )
 
         # Return the results message
         escaped_divider_str = "\n>\n"
         message = escaped_divider_str.join(food_item_strs)
         message = "**>" + message + "||"
-        return (
-            f"*✨🔮Found {len(food_item_strs)} food item{'s' if len(food_item_strs) > 1 else ''}🔮✨*\n\n"
-            + message
-            + "\n\n\n📱Manage your *pantry* in the miniapp\\!\n👇👇👇👇👇👇👇👇👇👇👇👇👇"
+        
+        processed_message: str = f"*✨🔮Found {len(food_item_strs)} food item{'s' if len(food_item_strs) > 1 else ''}🔮✨*\n\n" + message + "\n\n\n📱Manage your *pantry* in the miniapp\\!\n👇👇👇👇👇👇👇👇👇👇👇👇👇"
+        
+        return ProcessImageResponse(
+            processed_message=processed_message,
+            success=True,
+            message="Process Image food items success"
         )
 
     async def get_user(self, payload: GetUserPayload) -> GetUserResponse:
@@ -186,23 +196,7 @@ class Api:
         if user is None:
             return CreateFoodItemResponse(success=False, message="User not found")
 
-        bucket = self.supabase.storage.from_("public-assets")
-        
-        image_url = None
-        
-        try:
-            image_path = f"{uuid.uuid4()}.jpg"
-            # Upload the image to the storage bucket
-            image_response = bucket.upload(
-                path=image_path,
-                file=base64.b64decode(payload.image_base64),
-                file_options={"content-type": "image/jpeg"},
-            )
-            image_key: str = image_response.json()["Key"]
-            # Construct public url of the uploaded image
-            image_url = f"{SUPABASE_STORAGE_PUBLIC_URL}/{image_key}"
-        except Exception as e:
-            print("Error uploading image", e)
+        bucket = self._supabase.storage.from_("public-assets")
 
         food_item_payloads: List[Dict] = []
 
@@ -234,7 +228,6 @@ class Api:
         except Exception as e:
             logger.info("Error creating food items", e)
             return CreateFoodItemResponse(success=False, message=str(e))
-
         # Parse the response data into FoodItemResponse objects
         try:
             food_items = [FoodItemResponse(**item) for item in response.data]
@@ -262,7 +255,7 @@ class Api:
                 supabase_client.table("FoodItem")
                 .select("*")
                 .eq("user_id", user.id)
-                .order_by(order_by, ascending=(sort == "asc"))
+                .order(order_by, desc= sort == "desc")
                 .execute()
             )
             food_items = [FoodItemResponse(**item) for item in response.data]
@@ -343,10 +336,12 @@ class Api:
         food_items_id: List[int] = payload.food_items_id
 
         food_items_id_deleted_failed: List[int] = []
+
+        supabase_client = await self.get_supabase_client()
         
         for item_id in food_items_id:
             try:
-                response = self.supabase.table("FoodItem").delete().eq("id", item_id).execute()
+                response = await supabase_client.table("FoodItem").delete().eq("id", item_id).execute()
             except Exception as e:
                     print(f"Error deleting food items of id {item_id}", e)
                     food_items_id_deleted_failed.append(item_id)
@@ -358,7 +353,9 @@ class Api:
             food_items_id_deleted_failed=food_items_id_deleted_failed
         )   
 
-    async def sync_reminder_date_food_items(self, days_to_expiry: int) -> BaseResponse:
+    async def sync_reminder_date_food_items(self, days_to_expiry: int, telegram_user_id: int) -> BaseResponse:
+        TEST_USER_TO_SEND_TELEGRAM_TO: int = telegram_user_id
+
         # Get current datetime
         current_datetime = datetime.now()
         current_datetime_iso = current_datetime.isoformat()
@@ -366,25 +363,37 @@ class Api:
         next_reminder_datetime = current_datetime + timedelta(hours=23) 
         next_reminder_datetime_iso = next_reminder_datetime.isoformat()
 
-        trigger_date = current_datetime + timedelta(days=5)
+        trigger_date = current_datetime + timedelta(days=days_to_expiry)
         trigger_date_iso = trigger_date.isoformat()
 
+        supabase_client = await self.get_supabase_client()
+
         TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-        
+
         try:
-            response = self.supabase.table("FoodItem").update({"reminder_date", next_reminder_datetime_iso}).eq("consumed", False).eq("discarded", False).lt("expiry_date", trigger_date_iso).execute()
+            response = await supabase_client.table("FoodItem").update({"reminder_date": next_reminder_datetime_iso}).eq("consumed", False).eq("discarded", False).lt("expiry_date", trigger_date_iso).execute()
             food_items = [FoodItemResponse(**item) for item in response.data]
+        except Exception as e:
+            return BaseResponse(
+                 success=False,
+                 message="Failed to fetch expiring items - Sync food items failed"
+             )           
 
-            grouped_food_items = defaultdict(list)
-            for item in food_items:
-                grouped_food_items[item.user_id].append(item)
-            # Convert the defaultdict to a regular dictionary
-            grouped_food_items = dict(grouped_food_items)
+        grouped_food_items = defaultdict(list)
+        for food_item_response_obj in food_items:
+            grouped_food_items[food_item_response_obj.user_id].append(food_item_response_obj)
+        # Convert the defaultdict to a regular dictionary
+        grouped_food_items = dict(grouped_food_items)
 
+
+        try:
             for id_user_table, user_food_items_list in grouped_food_items.items():
-                telegram_user_id = self.supabase.table("User").select("telegram_user_id").eq("id", id_user_table).execute()
-                #TODO: test the util function and format the telegram message
-                utils.send_telegram_message(TELEGRAM_BOT_TOKEN, telegram_user_id, user_food_items_list)
+                telegram_user_id_resp = await supabase_client.table("User").select("telegram_user_id").eq("id", id_user_table).execute()
+
+                telegram_user_id = telegram_user_id_resp.data[0]['telegram_user_id']
+                telegram_user_alert_message = utils.format_expiry_alert(user_food_items_list)
+                if (TEST_USER_TO_SEND_TELEGRAM_TO == 0 or telegram_user_id == TEST_USER_TO_SEND_TELEGRAM_TO):
+                    utils.send_telegram_message(TELEGRAM_BOT_TOKEN, telegram_user_id, telegram_user_alert_message)
 
             return BaseResponse(
                 success=False,
@@ -393,5 +402,49 @@ class Api:
         except Exception as e:
             return BaseResponse(
                 success=False,
-                message="Sync food items failed"
+                message="Unable to send telegram message - Sync food items failed"
             ) 
+        
+
+    async def update_consume_or_discard_food_items(
+        self, payload: ConsumedDiscardedFoodItemPayload
+    ) -> UpdateFoodItemResponse:
+        supabase_client = await self.get_supabase_client()
+
+        user_response = await self.get_user(
+            GetUserPayload(telegram_user_id=payload.telegram_user_id)
+        )
+        user = user_response.user
+        if user is None:
+            return UpdateFoodItemResponse(success=False, message="User not found")
+
+        food_items_updated_success: List[FoodItemResponse] = []
+        food_items_updated_failed: List[FoodItemConsumedDiscarded] = []
+        for update_item in payload.food_items:
+            food_item_id = update_item.id
+
+            updated_data = {
+                "consumed": update_item.consumed,
+                "discarded": update_item.discarded,
+            }
+
+            try:
+                response = await (
+                    supabase_client.table("FoodItem")
+                    .update(updated_data)
+                    .eq("id", food_item_id)
+                    .execute()
+                )
+                food_items = [FoodItemResponse(**item) for item in response.data]
+                food_items_updated_success.extend(food_items)
+            except Exception as e:
+                logger.info(f"Error updating food items of id {food_item_id}", e)
+                food_items_updated_failed.append(update_item)
+                continue
+
+        return UpdateFoodItemResponse(
+            success=False if len(food_items_updated_failed) > 0 else True,
+            message="Food items updated", 
+            food_items_updated_success=food_items_updated_success,
+            food_items_updated_failed=food_items_updated_failed,
+        )

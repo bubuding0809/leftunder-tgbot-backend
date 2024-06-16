@@ -30,10 +30,11 @@ class FoodItemBase(BaseModel):
     reminder_date: datetime
     bounding_box: Optional[dict] = Field(default=None)
 
-class FoodItemCreate(FoodItemBase)
+class FoodItemCreate(FoodItemBase):
+    image_url: str
 
 class FoodItemUpdate(BaseModel):
-    id: int
+    id: str
     name: str
     description: str
     category: str
@@ -42,6 +43,12 @@ class FoodItemUpdate(BaseModel):
     unit: str
     expiry_date: Optional[datetime] = Field(default=None)
     shelf_life_days: Optional[int] = Field(default=None)
+    consumed: bool
+    discarded: bool
+
+
+class FoodItemConsumedDiscarded(BaseModel):
+    id: str
     consumed: bool
     discarded: bool
 
@@ -67,7 +74,7 @@ class GetUserResponse(BaseResponse):
 
 class CreateFoodItemPayload(BaseModel):
     telegram_user_id: int
-    image_base64: str
+    image_url: str
     food_items: List[FoodItemBase] = Field(
         default=[], description="List of food item objects"
     )
@@ -77,6 +84,12 @@ class UpdateFoodItemPayload(BaseModel):
     telegram_user_id: int
     food_items: List[FoodItemUpdate] = Field(
         default=[], description="List of update food item objects, restricted to editable fields only"
+    )
+
+class ConsumedDiscardedFoodItemPayload(BaseModel):
+    telegram_user_id: int
+    food_items: List[FoodItemConsumedDiscarded] = Field(
+        default=[], description="List of update food item objects, restricted to consumed and discarded fields only"
     )
 
 
@@ -94,19 +107,25 @@ class FoodItemDetails(BaseModel):
     storage_instructions: str
     quantity: float
     unit: str
-    expiry_date: datetime
-    shelf_life_days: int
+    expiry_date: Optional[datetime] = Field(default=None)
+    shelf_life_days: Optional[int] = Field(default=None)
     reminder_date: datetime
     user_id: str
-    image_url: str
+    image_url: Optional[str]
     consumed: bool
     discarded: bool
 
 
 class FoodItemResponse(FoodItemDetails):
     id: str
-    created_at: str
-    updated_at: str
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
+
+
+class ProcessImageResponse(BaseResponse):
+    processed_message: str = Field(
+        default="", description="message content if processed successfully"
+    )
 
 
 class CreateFoodItemResponse(BaseResponse):
