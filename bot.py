@@ -7,14 +7,12 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Update,
-    WebAppInfo,
 )
 from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
     CommandHandler,
     MessageHandler,
-    CallbackQueryHandler,
     filters,
 )
 from dotenv import load_dotenv
@@ -169,11 +167,9 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     # Remove the loader message to indicate completion of processing
-    await asyncio.create_task(
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=loader_message.message_id,
-        )
+    await context.bot.delete_message(
+        chat_id=update.effective_chat.id,
+        message_id=loader_message.message_id,
     )
 
     # Send a results message to indicate the food items detected
@@ -188,6 +184,18 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # * Error handler - process the error caused by the update
 async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.error(f"Update {update} caused error {context.error}")
+
+    if update.effective_chat is None:
+        return
+
+    if update.effective_message is None:
+        return
+
+    await context.bot.edit_message_text(
+        message_id=update.effective_message.message_id,
+        chat_id=update.effective_chat.id,
+        text="Error processing the bot request. Please try again.",
+    )
 
 
 def main():
