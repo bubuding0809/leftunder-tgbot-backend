@@ -28,13 +28,9 @@ class FoodItemBase(BaseModel):
     expiry_date: Optional[datetime] = Field(default=None)
     shelf_life_days: Optional[int] = Field(default=None)
     reminder_date: datetime
-<<<<<<< HEAD
     bounding_box: Optional[dict] = Field(default=None)
-=======
->>>>>>> main
 
-class FoodItemCreate(FoodItemBase):
-    image_url: str
+class FoodItemCreate(FoodItemBase)
 
 class FoodItemUpdate(BaseModel):
     id: int
@@ -71,13 +67,8 @@ class GetUserResponse(BaseResponse):
 
 class CreateFoodItemPayload(BaseModel):
     telegram_user_id: int
-<<<<<<< HEAD
     image_base64: str
-    food_items: List[FoodItemCreate] = Field(
-=======
-    image_url: str
     food_items: List[FoodItemBase] = Field(
->>>>>>> main
         default=[], description="List of food item objects"
     )
 
@@ -104,7 +95,7 @@ class FoodItemDetails(BaseModel):
     quantity: float
     unit: str
     expiry_date: datetime
-    shelf_life_days: Optional[int] = Field(default=None)
+    shelf_life_days: int
     reminder_date: datetime
     user_id: str
     image_url: str

@@ -35,6 +35,7 @@ from schema import (
 load_dotenv()
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+SUPABASE_STORAGE_PUBLIC_URL = os.environ.get("SUPABASE_STORAGE_PUBLIC_URL", "")
 logger = logging.getLogger(__name__)
 
 
@@ -288,8 +289,6 @@ class Api:
 
         food_items_updated_success: List[FoodItemResponse] = []
         food_items_updated_failed: List[FoodItemUpdate] = []
-
-        food_item_payloads: List[FoodItemUpdate] = []
         for update_item in payload.food_items:
             food_item_id = update_item.id
 
