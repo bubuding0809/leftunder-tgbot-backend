@@ -79,6 +79,9 @@ class CreateFoodItemPayload(BaseModel):
         default=[], description="List of food item objects"
     )
 
+class ProcessImagePayload(BaseModel):
+    image_url: str
+    telegram_user_id: int
 
 class UpdateFoodItemPayload(BaseModel):
     telegram_user_id: int

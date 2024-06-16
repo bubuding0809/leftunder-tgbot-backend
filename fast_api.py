@@ -30,8 +30,11 @@ async def read_food_items_for_user(
     ):
     return await api_instance.read_food_items_for_user(telegram_user_id=telegram_user_id, order_by=order_by, sort=sort)
 
-@app.get("/process-image/", response_model=ProcessImageResponse)
-async def process_image_for_user(image_url: str, telegram_user_id: str):    
+@app.post("/process-image/", response_model=ProcessImageResponse)
+async def process_image_for_user(payload: ProcessImagePayload): 
+    image_url: str = payload.image_url 
+    telegram_user_id: int = payload.telegram_user_id
+
     return await api_instance.process_image(
         image_url=image_url,
         telegram_user_id=telegram_user_id
