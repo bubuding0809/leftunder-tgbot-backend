@@ -117,9 +117,10 @@ def format_expiry_alert(food_items):
         messages.append(message)
     
     alert_message = (
-        f"*Food Expiry Alert!* - These are food items expiring soon\n\n"
+        f"🕕**Food Expiry Alert**🕕\n" +
+        "These are food items expiring soon!!! 🍓🍱🥗🍛🍋\n\n"
         + "\n".join(messages) + "\n\n"
-        "Mark all as consumed or enter pantry to manage!"
+        "Open your pantry 🛄 to manage them !"
     )
 
     return alert_message
