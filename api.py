@@ -237,6 +237,66 @@ class Api:
         except ValidationError as e:
             logger.info("Error parsing food items", e)
             return CreateFoodItemResponse(success=False, message=str(e))
+        
+    async def read_food_items_for_user_by_status(
+            self, 
+            telegram_user_id: int, 
+            order_by: str, 
+            sort: str,
+            is_expired: int,
+            is_consumed: int,
+            is_discarded: int
+    ) -> ReadFoodItemResponse:
+        supabase_client = await self.get_supabase_client()
+
+        user_response: GetUserResponse = await self.get_user(
+            GetUserPayload(telegram_user_id=telegram_user_id)
+        )
+        user = user_response.user
+        if user is None:
+            return ReadFoodItemResponse(success=False, message="User not found")
+        
+        IS_EXPIRED: bool = is_expired == 1
+        IS_CONSUMED: bool = is_consumed == 1
+        IS_DISCARDED: bool = is_discarded == 1
+
+        # Get current datetime
+        current_datetime = datetime.now()
+        current_datetime_iso = current_datetime.isoformat()
+
+        try:
+            if (IS_EXPIRED):
+                response = await (
+                    supabase_client.table("FoodItem")
+                    .select("*")
+                    .eq("user_id", user.id)
+                    .eq("consumed", IS_CONSUMED)
+                    .eq("discarded", IS_DISCARDED)
+                    .lt("expiry_date", current_datetime_iso)
+                    .order(order_by, desc= sort == "desc")
+                    .execute()
+                )
+            else:
+                response = await (
+                    supabase_client.table("FoodItem")
+                    .select("*")
+                    .eq("user_id", user.id)
+                    .eq("consumed", IS_CONSUMED)
+                    .eq("discarded", IS_DISCARDED)
+                    .gt("expiry_date", current_datetime_iso)
+                    .order(order_by, desc= sort == "desc")
+                    .execute()
+                )
+
+            food_items = [FoodItemResponse(**item) for item in response.data]
+            return ReadFoodItemResponse(
+                success=True,
+                message="Food items read successfully",
+                food_items=food_items,
+            )
+        except Exception as e:
+            logger.info("Error reading food items", e)
+            return ReadFoodItemResponse(success=False, message=str(e))
 
     async def read_food_items_for_user(
         self, telegram_user_id: int, order_by: str, sort: str

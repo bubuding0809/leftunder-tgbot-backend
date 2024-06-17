@@ -30,6 +30,23 @@ async def read_food_items_for_user(
     ):
     return await api_instance.read_food_items_for_user(telegram_user_id=telegram_user_id, order_by=order_by, sort=sort)
 
+@app.get("/read-food-items-for-user-by-status/", response_model=ReadFoodItemResponse)
+async def read_food_items_for_user(
+    telegram_user_id: int = Query(..., description="Telegram user ID"),
+    order_by: str = Query("expiry_date", description="Ordering criteria (expiry_date, created_at)"),
+    sort: str = Query("desc", description="Sorting criteria (asc, desc)"),
+    is_expired: int = Query(..., description="whether is expired"),
+    is_discarded: int = Query(..., description="whether is discarded"),
+    is_consumed: int = Query(..., description="whether is consumed"),
+    ):
+    return await api_instance.read_food_items_for_user_by_status(
+        telegram_user_id=telegram_user_id, 
+        order_by=order_by, 
+        sort=sort,
+        is_expired=is_expired,
+        is_consumed=is_consumed,
+        is_discarded=is_discarded)
+
 @app.post("/process-image/", response_model=ProcessImageResponse)
 async def process_image_for_user(payload: ProcessImagePayload): 
     image_url: str = payload.image_url 
