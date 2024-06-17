@@ -20,6 +20,7 @@ FOOD_CATEGORY = Literal[
     "Dairy",
     "Snacks",
     "Beverages",
+    "Condiments",
     "Grains",
     "Frozen Food",
     "Canned Food",
