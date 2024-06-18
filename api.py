@@ -69,21 +69,19 @@ class Api:
         logger.info(
             f"Completed processing for {image_url.split('/')[-1]} in {perf_counter() - start_time:.2f}s - {[food_item.food_name for food_item in llm_response.food_items] if llm_response else []}"
         )
-
+        
         if llm_response is None:
-   	    return ProcessImageResponse(
-            	processed_message=escape_markdown_v2("🚨 An error occurred while processing the image, please try again."),
-            	success=False,
-            	message=escape_markdown_v2("🚨 An error occurred while processing the image, please try again.")
+            return ProcessImageResponse(
+                processed_message=escape_markdown_v2("🚨 An error occurred while processing the image, please try again."),
+                success=False,
+                message=escape_markdown_v2("🚨 An error occurred while processing the image, please try again.")
             )
 
-		
-
         if len(llm_response.food_items) == 0:
-	    return ProcessImageResponse(
-            	processed_message=escape_markdown_v2("⚠️ No food items detected in the image."),
-            	success=True,
-            	message=escape_markdown_v2("⚠️ No food items detected in the image.")            
+            return ProcessImageResponse(
+                processed_message=escape_markdown_v2("⚠️ No food items detected in the image."),
+                success=True,
+                message=escape_markdown_v2("⚠️ No food items detected in the image.")
             )
 
         food_item_payloads: List[FoodItemBase] = []
