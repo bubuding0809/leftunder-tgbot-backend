@@ -71,12 +71,20 @@ class Api:
         )
 
         if llm_response is None:
-            return escape_markdown_v2(
-                "🚨 An error occurred while processing the image, please try again."
+   	    return ProcessImageResponse(
+            	processed_message=escape_markdown_v2("🚨 An error occurred while processing the image, please try again."),
+            	success=False,
+            	message=escape_markdown_v2("🚨 An error occurred while processing the image, please try again.")
             )
 
+		
+
         if len(llm_response.food_items) == 0:
-            return escape_markdown_v2("⚠️ No food items detected in the image.")
+	    return ProcessImageResponse(
+            	processed_message=escape_markdown_v2("⚠️ No food items detected in the image."),
+            	success=True,
+            	message=escape_markdown_v2("⚠️ No food items detected in the image.")            
+            )
 
         food_item_payloads: List[FoodItemBase] = []
         food_item_strs: List[str] = []
