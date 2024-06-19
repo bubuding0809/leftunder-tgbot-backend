@@ -1,5 +1,5 @@
 import base64
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from PIL import Image
 from io import BytesIO
 import uuid
@@ -109,18 +109,17 @@ def send_telegram_message(bot_token, chat_id, message, buttons=None):
   
 def format_expiry_alert(food_items):
     messages = []
-    today = datetime.today()
-    print(today)
+    today_iso: datetime = datetime.now(tz=timezone.utc)
 
     for food_item in food_items:
         name = food_item.name
-        expiry_date = food_item.expiry_date
+        expiry_date: datetime = food_item.expiry_date
 
         if expiry_date is None:
             expiry_status = "Unknown"
         else:
             # Calculate the difference in days
-            days_until_expiry = (expiry_date - today).days
+            days_until_expiry = (expiry_date - today_iso).days
             
             if days_until_expiry == 0:
                 expiry_status = f"expiring today: {expiry_date.strftime('%Y-%m-%d')}"
@@ -133,7 +132,7 @@ def format_expiry_alert(food_items):
         messages.append(message)
     
     alert_message = (
-        f"*Food Expiry Alert*  🍟🍣🌽🍒🥬🍢\n\n" 
+        "*Food Expiry Alert* 🍟🍣🌽🍒🥬🍢\n\n" 
         + "⏰ These food items are expiring soon!!!\n\n"
         + "\n".join(messages)
         + "\n\n\n📱Manage your *pantry* in the miniapp!\n⬇️⬇️⬇️"
