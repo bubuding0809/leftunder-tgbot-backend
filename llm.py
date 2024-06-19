@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 
-FOOD_CATEGORY = Literal[
+FOOD_CATEGORY = [
     "Fruits",
     "Vegetables",
     "Meat",
@@ -54,7 +54,9 @@ class FoodItem(BaseModel):
     """Food item detected in the image"""
 
     food_name: str = Field(description="Name of the food item, keep it to max 3 words")
-    category: FOOD_CATEGORY = Field(description="Type of the food item")
+    category: str = Field(
+        description=f"Type of the food item. Only use the categories provided in the list {FOOD_CATEGORY}"
+    )
     description: str = Field(
         description="Description of the food item, keep it to 1 sentence long"
     )
