@@ -437,8 +437,9 @@ class Api:
         TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 
         try:
-            response = await supabase_client.table("FoodItem").update({"reminder_date": next_reminder_datetime_iso}).eq("consumed", False).eq("discarded", False).lt("expiry_date", trigger_date_iso).order("expiry_date").execute()
-            food_items = [FoodItemResponse(**item) for item in response.data]
+            response_read = await supabase_client.table("FoodItem").select("*").eq("consumed", False).eq("discarded", False).lt("expiry_date", trigger_date_iso).order("expiry_date").execute()
+            response = await supabase_client.table("FoodItem").update({"reminder_date": next_reminder_datetime_iso}).eq("consumed", False).eq("discarded", False).lt("expiry_date", trigger_date_iso).execute()
+            food_items = [FoodItemResponse(**item) for item in response_read.data]
         except Exception as e:
             return BaseResponse(
                  success=False,
