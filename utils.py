@@ -96,7 +96,8 @@ def send_telegram_message(bot_token, chat_id, message, buttons=None):
     payload = {
         "chat_id": chat_id,
         "text": message,
-        "reply_markup": reply_markup
+        "reply_markup": reply_markup,
+        "parse_mode": "markdown"  # Set parse mode to Markdown V2
     }
     
     response = requests.post(url, json=payload)
@@ -108,19 +109,35 @@ def send_telegram_message(bot_token, chat_id, message, buttons=None):
   
 def format_expiry_alert(food_items):
     messages = []
+    today = datetime.today()
+    print(today)
 
     for food_item in food_items:
         name = food_item.name
-        expiry_date = food_item.expiry_date.strftime("%Y-%m-%d") if food_item.expiry_date else "Unknown"
-        
-        message = f"- {name} (expiring: {expiry_date})"
+        expiry_date = food_item.expiry_date
+
+        if expiry_date is None:
+            expiry_status = "Unknown"
+        else:
+            # Calculate the difference in days
+            days_until_expiry = (expiry_date - today).days
+            
+            if days_until_expiry == 0:
+                expiry_status = f"expiring today: {expiry_date.strftime('%Y-%m-%d')}"
+            elif days_until_expiry < 0:
+                expiry_status = f"expired on: {expiry_date.strftime('%Y-%m-%d')}"
+            else:
+                expiry_status = f"expiring in {days_until_expiry} days: {expiry_date.strftime('%Y-%m-%d')}"
+
+        message = f"- {name} ({expiry_status})"
         messages.append(message)
     
     alert_message = (
-        f"🕕**Food Expiry Alert**🕕\n" +
-        "These are food items expiring soon!!! 🍓🍱🥗🍛🍋\n\n"
-        + "\n".join(messages) + "\n\n"
-        "Open your pantry 🛄 to manage them !"
+        f"🕕 🕕 *Food Expiry Alert* 🕕 🕕\n" 
+        + "🍟🍣🌽🍒🥬🍢🍡🍖🍓🍱🥗🍛🍋\n"
+        "These are food items expiring soon!!!\n\n"
+        + "\n".join(messages)
+        + "\n\n\n📱Manage your *pantry* in the miniapp!\n👇👇👇👇👇👇👇👇👇👇👇👇👇"
     )
 
     return alert_message
