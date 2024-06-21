@@ -369,8 +369,24 @@ def main():
     # Run the bot in polling mode or webhook mode depending on the environment
     PRODUCTION = os.environ.get("PRODUCTION", False) == "True"
     if PRODUCTION:
-        application.run_webhook()
+        # Ensure the TELEGRAM_WEBHOOK_URL is set in the environment variables
+        TELEGRAM_WEBHOOK_URL = os.environ.get("TELEGRAM_WEBHOOK_URL")
+        if TELEGRAM_WEBHOOK_URL is None:
+            logger.error("No TELEGRAM_WEBHOOK_URL set in environment variables.")
+            return
+
+        # * Run the bot in production mode with webhook enabled
+        logger.info("Running in production mode, with webhook enabled.")
+        logger.info(f"Webhook URL: {TELEGRAM_WEBHOOK_URL}")
+        application.run_webhook(
+            listen="0.0.0.0",
+            port=int(os.environ.get("PORT", 8443)),
+            secret_token=os.environ.get("TELEGRAM_WEBHOOK_SECRET", "NotSoSecret"),
+            webhook_url=TELEGRAM_WEBHOOK_URL,
+        )
     else:
+        # * Run the bot in development mode with polling enabled
+        logger.info("Running in development mode, with polling enabled.")
         application.run_polling()
 
 
