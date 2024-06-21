@@ -364,7 +364,7 @@ class Api:
                     else None
                 ),
                 "shelf_life_days": update_item.shelf_life_days,
-                "reminder_date": calculate_reminder_date(update_item).isoformat(),
+                "reminder_date": update_item.expiry_date.isoformat(),
                 "consumed": update_item.consumed,
                 "discarded": update_item.discarded,
             }
