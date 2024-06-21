@@ -364,7 +364,7 @@ class Api:
                     else None
                 ),
                 "shelf_life_days": update_item.shelf_life_days,
-                "reminder_date": update_item.expiry_date.isoformat(),
+                "reminder_date": calculate_reminder_date(update_item).isoformat(),
                 "consumed": update_item.consumed,
                 "discarded": update_item.discarded,
             }
@@ -431,7 +431,6 @@ class Api:
 
         trigger_date = current_datetime + timedelta(days=days_to_expiry)
         trigger_date_iso = trigger_date.isoformat()
-        print(trigger_date_iso)
 
         supabase_client = await self.get_supabase_client()
 
@@ -447,7 +446,11 @@ class Api:
                 .execute()
             
             # response = await supabase_client.table("FoodItem").update({"reminder_date": next_reminder_datetime_iso}).eq("consumed", False).eq("discarded", False).lt("expiry_date", trigger_date_iso).execute()
-            food_items_remove_none_reminder_date = [item for item in response_read.data if item.get('reminder_date') is not None]
+            food_items_remove_none_reminder_date = [
+                item for item in response_read.data 
+                if item.get('reminder_date') is not None 
+                or datetime.fromisoformat(item['expiry_date']) > datetime.fromisoformat(current_datetime_iso)
+            ]
             food_items = [FoodItemResponse(**item) for item in food_items_remove_none_reminder_date]
 
             expired_items = []
