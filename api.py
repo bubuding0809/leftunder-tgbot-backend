@@ -141,7 +141,7 @@ class Api:
         message = escaped_divider_str.join(food_item_strs)
         message = "**>" + message + "||"
         
-        processed_message: str = f"*✨🔮Found {len(food_item_strs)} food item{'s' if len(food_item_strs) > 1 else ''}🔮✨*\n\n" + message + "\n\n\n📱Manage your *pantry* in the miniapp!\n⬇️⬇️⬇️"
+        processed_message: str = f"*✨🔮Found {len(food_item_strs)} food item{'s' if len(food_item_strs) > 1 else ''}🔮✨*\n\n" + message + "\n\n\n📱Manage your *pantry* in the miniapp\\!\n⬇️⬇️⬇️"
         
         return ProcessImageResponse(
             processed_message=processed_message,
