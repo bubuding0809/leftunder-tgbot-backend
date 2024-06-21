@@ -75,6 +75,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat is None:
         return
 
+    await context.bot.send_chat_action(
+        chat_id=update.effective_chat.id,
+        action=telegram.constants.ChatAction.TYPING,
+    )
+
     if api is None:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -100,7 +105,26 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         message = START_MESSAGE_NEW.format(user=update.effective_chat.first_name)
 
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+    # Send the welcome message to the user
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=message,
+    )
+
+    # Send educational video to the user
+    with open("assets/video/education.mp4", "rb") as video:
+        await context.bot.send_chat_action(
+            chat_id=update.effective_chat.id,
+            action=telegram.constants.ChatAction.UPLOAD_VIDEO,
+        )
+        await context.bot.send_video(
+            chat_id=update.effective_chat.id,
+            video=video,
+            supports_streaming=True,
+            width=1080,
+            height=1920,
+            caption="🎥 Watch this video to learn how to use the bot!",
+        )
 
 
 # * Help handler - process the help command sent by the user to inform about the bot's capabilities

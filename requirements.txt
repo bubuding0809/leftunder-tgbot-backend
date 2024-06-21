@@ -31,7 +31,7 @@ pydantic==2.7.3
 pydantic_core==2.18.4
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
-python-telegram-bot==21.2
+python-telegram-bot==21.3
 PyYAML==6.0.1
 realtime==1.0.5
 regex==2024.5.15
