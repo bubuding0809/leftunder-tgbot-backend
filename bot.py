@@ -132,7 +132,26 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat is None:
         return
 
+    await context.bot.send_chat_action(
+        chat_id=update.effective_chat.id,
+        action=telegram.constants.ChatAction.TYPING,
+    )
     await context.bot.send_message(chat_id=update.effective_chat.id, text=HELP_MESSAGE)
+
+    # Send educational video to the user
+    with open("assets/video/education.mp4", "rb") as video:
+        await context.bot.send_chat_action(
+            chat_id=update.effective_chat.id,
+            action=telegram.constants.ChatAction.UPLOAD_VIDEO,
+        )
+        await context.bot.send_video(
+            chat_id=update.effective_chat.id,
+            video=video,
+            supports_streaming=True,
+            width=1080,
+            height=1920,
+            caption="🎥 Watch this video to learn how to use the bot!",
+        )
 
 
 # * Message handler - process the message sent by the user to inform that the bot can't converse
