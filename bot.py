@@ -131,6 +131,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_message is None:
         return
 
+    # Retrieve the API and aio_session from the bot_data context
     api: Optional[Api] = context.bot_data.get("api")
     aio_session: Optional[ClientSession] = context.bot_data.get("aio_session")
 
@@ -235,6 +236,45 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+# * Reminder handler - simulate the reminder to the user about the food items about to expire
+async def reminder(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat is None:
+        return
+
+    if update.effective_message is None:
+        return
+
+    # Retrieve the aio_session from the bot_data context
+    aio_session: Optional[ClientSession] = context.bot_data.get("aio_session")
+
+    if aio_session is None:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="⛔️ Error processing request. Please try again.",
+        )
+        return
+
+    # Send a reminder message to the user
+    try:
+        async with aio_session.get(
+            "/trigger-reminder-food-items-for-user",
+            params={
+                "days_to_expiry": 5,
+                "telegram_user_id": update.effective_chat.id,
+            },
+        ) as response:
+            data = await response.json()
+            if not data.get("success", False):
+                raise Exception("Error sending reminder")
+    except Exception as e:
+        logging.error(f"Error sending reminder: {e}")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            reply_to_message_id=update.effective_message.message_id,
+            text="⛔️ Error sending reminder. Please try again.",
+        )
+
+
 # * Error handler - process the error caused by the update
 async def error(update: Optional[object], context: ContextTypes.DEFAULT_TYPE):
     """Log the error and send a formatted message to the user/developer."""
@@ -312,6 +352,7 @@ def main():
     # Define handlers
     start_handler = CommandHandler("start", start)
     photo_handler = MessageHandler(filters.PHOTO, photo)
+    reminder_handler = CommandHandler("reminder", reminder)
     help_handler = CommandHandler("help", help)
     message_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, message)
     bad_command_handler = CommandHandler("bad_command", bad_command)
@@ -320,6 +361,7 @@ def main():
     application.add_handler(help_handler)
     application.add_handler(message_handler)
     application.add_handler(photo_handler)
+    application.add_handler(reminder_handler)
     application.add_handler(bad_command_handler)
     application.add_error_handler(error)
     application.add_handler(start_handler)
