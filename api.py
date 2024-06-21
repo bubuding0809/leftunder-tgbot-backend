@@ -127,7 +127,7 @@ class Api:
         return (
             f"*✨🔮Found {len(food_item_strs)} food item{'s' if len(food_item_strs) > 1 else ''}🔮✨*\n\n"
             + message
-            + "\n\n\n📱Manage your *pantry* in the miniapp\\!\n👇👇👇👇👇👇👇👇👇👇👇👇👇"
+            + "\n\n\n📱Manage your *pantry* in the miniapp\\!\n⬇️⬇️⬇️"
         )
 
     async def get_user(self, payload: GetUserPayload) -> GetUserResponse:
