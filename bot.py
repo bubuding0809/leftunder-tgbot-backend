@@ -2,9 +2,11 @@ import html
 import json
 import logging
 import os
+from time import perf_counter
 import traceback
 from typing import Optional
 import uuid
+from aiohttp import ClientSession
 import telegram
 from telegram import (
     Update,
@@ -16,6 +18,7 @@ from telegram.ext import (
     CommandHandler,
     MessageHandler,
     filters,
+    Application,
 )
 from dotenv import load_dotenv
 from api import Api
@@ -65,13 +68,18 @@ Here’s a quick guide to get you started:
 4.	⏰ Get automatic reminders when your food items are about to expire.
 """
 
-# Initialize the API client
-api = Api()
-
 
 # * Start handler - process the start command sent by the user to register the user or welcome back
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    api: Optional[Api] = context.bot_data.get("api")
     if update.effective_chat is None:
+        return
+
+    if api is None:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="⛔️ Error processing request. Please try again.",
+        )
         return
 
     # Check if the user is already registered
@@ -123,6 +131,16 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_message is None:
         return
 
+    api: Optional[Api] = context.bot_data.get("api")
+    aio_session: Optional[ClientSession] = context.bot_data.get("aio_session")
+
+    if api is None:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="⛔️ Error processing request. Please try again.",
+        )
+        return
+
     # Download the photo and send it to the LLM for
     target_photo = update.effective_message.photo[-1]
 
@@ -169,23 +187,32 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # TODO - replace with API call to separate service
-    try:
-        results_message = await api.process_image(
-            image_url=image_url,
-            telegram_user_id=update.effective_chat.id,
-        )
-    except Exception as e:
-        results_message = "⛔️ Error processing image. Please try again."
-        logging.error(f"Error processing image: {e}")
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=results_message,
-            reply_to_message_id=update.effective_message.message_id,
-            read_timeout=60,
-            write_timeout=60,
-            connect_timeout=60,
-        )
+    # Process the image using the LLM via the API
+    if aio_session is None:
+        try:
+            results_message = await api.process_image(
+                image_url=image_url,
+                telegram_user_id=update.effective_chat.id,
+            )
+        except Exception as e:
+            results_message = "⛔️ Error processing image\\. Please try again\\."
+    else:
+        try:
+            async with aio_session.post(
+                "/process-image",
+                json={
+                    "image_url": image_url,
+                    "telegram_user_id": update.effective_chat.id,
+                },
+            ) as response:
+                data = await response.json()
+                results_message = data.get(
+                    "processed_message",
+                    "⛔️ Error processing image\\. Please try again\\.",
+                )
+        except Exception as e:
+            results_message = "⛔️ Error processing image\\. Please try again\\."
+            logging.error(f"Error processing image: {e}")
 
     # Remove the loader message to indicate completion of processing
     await context.bot.delete_message(
@@ -256,21 +283,35 @@ async def bad_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await context.bot.wrong_method_name()  # type: ignore[attr-defined]
 
 
+async def post_init(applicaiton: Application):
+    session = ClientSession(
+        base_url="https://leftunder-tgbot-backend-server-prod.onrender.com"
+    )
+    api = Api()
+    applicaiton.bot_data["aio_session"] = session
+    applicaiton.bot_data["api"] = api
+
+
+async def post_shutdown(applicaiton: Application):
+    session: Optional[ClientSession] = applicaiton.bot_data.get("aio_session")
+    if session:
+        await session.close()
+
+
 def main():
     TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     application = (
-        ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).concurrent_updates(True).build()
+        ApplicationBuilder()
+        .token(TELEGRAM_BOT_TOKEN)
+        .post_init(post_init)
+        .post_shutdown(post_shutdown)
+        .concurrent_updates(True)
+        .build()
     )
 
     # Define handlers
-    start_handler = CommandHandler(
-        "start",
-        lambda update, context: start(update, context),
-    )
-    photo_handler = MessageHandler(
-        filters.PHOTO,
-        lambda update, context: photo(update, context),
-    )
+    start_handler = CommandHandler("start", start)
+    photo_handler = MessageHandler(filters.PHOTO, photo)
     help_handler = CommandHandler("help", help)
     message_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, message)
     bad_command_handler = CommandHandler("bad_command", bad_command)
