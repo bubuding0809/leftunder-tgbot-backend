@@ -124,7 +124,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             supports_streaming=True,
             width=1080,
             height=1920,
-            caption="🎥 Watch this video to learn how to use the bot!",
         )
 
 
@@ -151,7 +150,6 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
             supports_streaming=True,
             width=1080,
             height=1920,
-            caption="🎥 Watch this video to learn how to use the bot!",
         )
 
 
