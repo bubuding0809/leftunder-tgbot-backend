@@ -27,6 +27,7 @@ from schema import GetUserPayload, RegisterUserPayload
 load_dotenv()
 SUPABASE_STORAGE_PUBLIC_URL = os.environ.get("SUPABASE_STORAGE_PUBLIC_URL")
 TELEGRAM_LOG_CHANNEL_ID = os.environ.get("TELEGRAM_LOG_CHANNEL_ID", "")
+PRODUCTION = os.environ.get("PRODUCTION", False) == "True"
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -232,9 +233,10 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     llm_start_time = perf_counter()
+    logger.info(f"Processing image: {image_url}")
 
     # Process the image using the LLM via the API
-    if aio_session is None:
+    if aio_session is None or not PRODUCTION:
         try:
             results_message = await api.process_image(
                 image_url=image_url,
@@ -416,7 +418,6 @@ def main():
     application.add_handler(start_handler)
 
     # Run the bot in polling mode or webhook mode depending on the environment
-    PRODUCTION = os.environ.get("PRODUCTION", False) == "True"
     if PRODUCTION:
         # Ensure the TELEGRAM_WEBHOOK_URL is set in the environment variables
         TELEGRAM_WEBHOOK_URL = os.environ.get("TELEGRAM_WEBHOOK_URL")
