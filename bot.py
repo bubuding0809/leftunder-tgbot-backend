@@ -231,6 +231,8 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    llm_start_time = perf_counter()
+
     # Process the image using the LLM via the API
     if aio_session is None:
         try:
@@ -257,6 +259,10 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             results_message = "⛔️ Error processing image\\. Please try again\\."
             logging.error(f"Error processing image: {e}")
+
+    logger.info(
+        f"LLM processing time for {image_url} : {perf_counter() - llm_start_time:.2f}s"
+    )
 
     # Remove the loader message to indicate completion of processing
     await context.bot.delete_message(
