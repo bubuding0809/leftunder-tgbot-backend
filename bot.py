@@ -244,6 +244,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         except Exception as e:
             results_message = "⛔️ Error processing image\\. Please try again\\."
+            logger.error(f"Error processing image: {e}")
     else:
         try:
             async with aio_session.post(
