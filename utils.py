@@ -119,14 +119,16 @@ def format_expiry_alert(food_items):
             expiry_status = "Unknown"
         else:
             # Calculate the difference in days
-            days_until_expiry = (expiry_date - today_iso).days - 1
+            days_until_expiry = (expiry_date - today_iso).days + 1
             
             if days_until_expiry == 0:
                 expiry_status = f"expiring today: *{expiry_date.strftime('%Y-%m-%d')}*"
             elif days_until_expiry < 0:
                 expiry_status = f"expired on: *{expiry_date.strftime('%Y-%m-%d')}*"
+            elif days_until_expiry == 1:
+                expiry_status = f"expiring in {days_until_expiry} day: *{expiry_date.strftime('%Y-%m-%d')}*"
             else:
-                expiry_status = f"expiring in {days_until_expiry} day(s): *{expiry_date.strftime('%Y-%m-%d')}*"
+                expiry_status = f"expiring in {days_until_expiry} days: *{expiry_date.strftime('%Y-%m-%d')}*"
 
         message = f"- {name} ({expiry_status})"
         messages.append(message)
