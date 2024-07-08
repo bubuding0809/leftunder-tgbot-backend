@@ -1,32 +1,34 @@
-import base64
-from datetime import datetime, timedelta
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 import logging
 import os
 from time import perf_counter
-import uuid
 import telegram
 import llm
 from dotenv import load_dotenv
 from pydantic import ValidationError
-from supabase import create_client, acreate_client
-from typing import Dict, List, Optional
-from utils import calculate_reminder_date, escape_markdown_v2
+from supabase import acreate_client
+from typing import Dict, List
+from utils import (
+    calculate_reminder_date,
+    escape_markdown_v2,
+    format_expiry_alert,
+    send_telegram_message,
+)
 from schema import (
+    BaseResponse,
     CreateFoodItemPayload,
     FoodItemBase,
     UpdateFoodItemPayload,
-    DeleteFoodItemPayload,
     CreateFoodItemResponse,
     ReadFoodItemResponse,
     UpdateFoodItemResponse,
-    DeleteFoodItemResponse,
     FoodItemResponse,
     GetUserPayload,
     GetUserResponse,
     RegisterUserPayload,
     RegisterUserResponse,
     User,
-    FoodItemDetails,
     FoodItemUpdate,
 )
 
@@ -310,3 +312,107 @@ class Api:
             food_items_updated_success=food_items_updated_success,
             food_items_updated_failed=food_items_updated_failed,
         )
+
+    async def sync_reminder_date_food_items(
+        self, days_to_expiry: int, telegram_user_id: int
+    ) -> BaseResponse:
+        TEST_USER_TO_SEND_TELEGRAM_TO: int = telegram_user_id
+
+        # Get current datetime
+        current_datetime = datetime.now(tz=timezone.utc)
+        current_datetime_iso = current_datetime.isoformat()
+        # new reminder datetime is 23 hours from current datetime
+        next_reminder_datetime = current_datetime + timedelta(hours=23)
+        next_reminder_datetime_iso = next_reminder_datetime.isoformat()
+
+        trigger_date = current_datetime + timedelta(days=days_to_expiry)
+        trigger_date_iso = trigger_date.isoformat()
+
+        supabase_client = await self.get_supabase_client()
+
+        TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+
+        try:
+            response_read = (
+                await supabase_client.table("FoodItem")
+                .select("*")
+                .eq("consumed", False)
+                .eq("discarded", False)
+                .lt("expiry_date", trigger_date_iso)
+                .order("expiry_date")
+                .execute()
+            )
+
+            # response = await supabase_client.table("FoodItem").update({"reminder_date": next_reminder_datetime_iso}).eq("consumed", False).eq("discarded", False).lt("expiry_date", trigger_date_iso).execute()
+            food_items_remove_none_reminder_date = [
+                item
+                for item in response_read.data
+                if item.get("reminder_date") is not None
+                or datetime.fromisoformat(item["expiry_date"])
+                > datetime.fromisoformat(current_datetime_iso)
+            ]
+            food_items = [
+                FoodItemResponse(**item)
+                for item in food_items_remove_none_reminder_date
+            ]
+
+            expired_items = []
+            for item in food_items_remove_none_reminder_date:
+                if datetime.fromisoformat(item["expiry_date"]) < datetime.fromisoformat(
+                    current_datetime_iso
+                ):
+                    expired_items.append(
+                        item["id"]
+                    )  # Assuming 'id' is the primary key or identifier for the FoodItem table
+                    item["reminder_date"] = None
+
+            # Update expired items in the database
+            if expired_items:
+                await supabase_client.table("FoodItem").update(
+                    {"reminder_date": None}
+                ).in_("id", expired_items).execute()
+
+        except Exception as e:
+            return BaseResponse(
+                success=False,
+                message="Failed to fetch expiring items - Sync food items failed",
+            )
+
+        grouped_food_items = defaultdict(list)
+        for food_item_response_obj in food_items:
+            grouped_food_items[food_item_response_obj.user_id].append(
+                food_item_response_obj
+            )
+        # Convert the defaultdict to a regular dictionary
+        grouped_food_items = dict(grouped_food_items)
+
+        try:
+            for id_user_table, user_food_items_list in grouped_food_items.items():
+                telegram_user_id_resp = (
+                    await supabase_client.table("User")
+                    .select("telegram_user_id")
+                    .eq("id", id_user_table)
+                    .execute()
+                )
+
+                telegram_user_id = telegram_user_id_resp.data[0]["telegram_user_id"]
+                telegram_user_alert_message = format_expiry_alert(user_food_items_list)
+                if (
+                    TEST_USER_TO_SEND_TELEGRAM_TO == 0
+                    or telegram_user_id == TEST_USER_TO_SEND_TELEGRAM_TO
+                ):
+                    send_telegram_message(
+                        TELEGRAM_BOT_TOKEN,
+                        telegram_user_id,
+                        telegram_user_alert_message,
+                    )
+
+            return BaseResponse(
+                success=True,
+                message="Sync food items success - message sent to telegram user",
+            )
+        except Exception as e:
+            return BaseResponse(
+                success=False,
+                message="Unable to send telegram message - Sync food items failed",
+            )
