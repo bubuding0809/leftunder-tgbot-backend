@@ -232,10 +232,10 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     llm_start_time = perf_counter()
-    logger.info(f"Processing image: {image_url}")
 
     # Process the image using the LLM via the API
     if aio_session is None or not PRODUCTION or IS_LOCAL_API:
+        logger.info(f"Processing image: {image_url} - locally")
         try:
             results_message = await api.process_image(
                 image_url=image_url,
@@ -245,6 +245,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             results_message = "⛔️ Error processing image\\. Please try again\\."
             logger.error(f"Error processing image: {e}")
     else:
+        logger.info(f"Processing image: {image_url} - externally")
         try:
             async with aio_session.post(
                 "/process-image",
@@ -307,14 +308,24 @@ async def reminder(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # Send a reminder message to the user
-    try:
-        if aio_session is None or not PRODUCTION or IS_LOCAL_API:
+    if aio_session is None or not PRODUCTION or IS_LOCAL_API:
+        logger.info(f"Sending reminder: {update.effective_chat.id} locally")
+        try:
             response = await api.sync_reminder_date_food_items(
                 days_to_expiry=5, telegram_user_id=update.effective_chat.id
             )
             if not response.success:
                 raise Exception("Error sending reminder")
-        else:
+        except Exception as e:
+            logging.error(f"Error sending reminder: {e}")
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                reply_to_message_id=update.effective_message.message_id,
+                text="⛔️ Error sending reminder. Please try again.",
+            )
+    else:
+        logger.info(f"Sending reminder: {update.effective_chat.id} externally")
+        try:
             async with aio_session.get(
                 "/trigger-reminder-food-items-for-user",
                 params={
@@ -325,13 +336,13 @@ async def reminder(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 data = await response.json()
                 if not data.get("success", False):
                     raise Exception("Error sending reminder")
-    except Exception as e:
-        logging.error(f"Error sending reminder: {e}")
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            reply_to_message_id=update.effective_message.message_id,
-            text="⛔️ Error sending reminder. Please try again.",
-        )
+        except Exception as e:
+            logging.error(f"Error sending reminder: {e}")
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                reply_to_message_id=update.effective_message.message_id,
+                text="⛔️ Error sending reminder. Please try again.",
+            )
 
 
 # * Error handler - process the error caused by the update
