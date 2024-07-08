@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from datetime import datetime
@@ -102,8 +103,7 @@ food_item_example = FoodItem(
     shelf_life_days=365,
 )
 
-SYSTEM_PROMPT = """
-You are a professional food cataloger. 
+SYSTEM_PROMPT = """You are a professional food cataloger. 
 You assist the user by providing detailed and informative descriptions of images they upload.
 Your main goal is to identify food items in the image and provide structured information about them.
 You generate data in a structured format with specified fields for food items.
@@ -170,9 +170,12 @@ async def invoke_chain(
         return None
 
 
-def main():
-    pass
+async def main():
+    res = await invoke_chain(
+        "https://fprskgybcquiadthlkly.supabase.co/storage/v1/object/public/public-assets/917b9d23-fd6d-4568-99f0-ceac148e8dd3.jpg"
+    )
+    print(res)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
