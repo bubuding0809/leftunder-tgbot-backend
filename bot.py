@@ -28,6 +28,7 @@ load_dotenv()
 SUPABASE_STORAGE_PUBLIC_URL = os.environ.get("SUPABASE_STORAGE_PUBLIC_URL")
 TELEGRAM_LOG_CHANNEL_ID = os.environ.get("TELEGRAM_LOG_CHANNEL_ID", "")
 PRODUCTION = os.environ.get("PRODUCTION", False) == "True"
+IS_LOCAL_API = os.environ.get("IS_LOCAL_API", False) == "True"
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -234,7 +235,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"Processing image: {image_url}")
 
     # Process the image using the LLM via the API
-    if aio_session is None or not PRODUCTION:
+    if aio_session is None or not PRODUCTION or IS_LOCAL_API:
         try:
             results_message = await api.process_image(
                 image_url=image_url,
